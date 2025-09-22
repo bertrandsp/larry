@@ -1,0 +1,118 @@
+name: Acceptance Tests (PRD §20)
+
+on:
+  push:
+    branches: [ main, test/acceptance ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  acceptance-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: larry_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: api/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd api
+        npm ci
+
+    - name: Setup environment variables
+      run: |
+        cd api
+        cp .env.example .env
+        echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/larry_test" >> .env
+        echo "REDIS_URL=redis://localhost:6379" >> .env
+        echo "ADMIN_SIGNING_KEY=test_admin_key_for_ci" >> .env
+        echo "NODE_ENV=test" >> .env
+
+    - name: Generate Prisma client
+      run: |
+        cd api
+        npx prisma generate
+
+    - name: Run database migrations
+      run: |
+        cd api
+        npx prisma migrate deploy
+
+    - name: Type check
+      run: |
+        cd api
+        npm run type-check
+
+    - name: Start API server in background
+      run: |
+        cd api
+        npm run dev &
+        sleep 10
+      env:
+        NODE_ENV: test
+
+    - name: Wait for API to be ready
+      run: |
+        timeout 30 bash -c 'until curl -f http://localhost:4000/health; do sleep 1; done'
+
+    - name: Run acceptance tests
+      run: |
+        cd api
+        npm run test:acceptance
+      env:
+        NODE_ENV: test
+
+    - name: Run all tests with coverage
+      run: |
+        cd api
+        npm run test:coverage
+      env:
+        NODE_ENV: test
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        directory: api/coverage
+        flags: acceptance-tests
+        name: acceptance-coverage
+
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          api/coverage/
+          api/test-results.xml

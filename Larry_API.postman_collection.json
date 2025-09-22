@@ -1,0 +1,133 @@
+{
+  "info": {
+    "name": "Larry API",
+    "description": "API collection for testing Larry backend endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://192.168.1.178:4000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Start Google OAuth",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/mobile/start?provider=google",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "mobile", "start"],
+          "query": [
+            {
+              "key": "provider",
+              "value": "google"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Exchange OTC",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"otc\": \"your-otc-here\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/consume-otc",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "consume-otc"]
+        }
+      }
+    },
+    {
+      "name": "Get User Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["me"]
+        }
+      }
+    },
+    {
+      "name": "Get Topics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/topics",
+          "host": ["{{baseUrl}}"],
+          "path": ["topics"]
+        }
+      }
+    },
+    {
+      "name": "Get Daily Word",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/daily",
+          "host": ["{{baseUrl}}"],
+          "path": ["daily"]
+        }
+      }
+    }
+  ]
+}
+

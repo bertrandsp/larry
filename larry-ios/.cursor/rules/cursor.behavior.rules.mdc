@@ -1,0 +1,63 @@
+---
+description: >
+  Cursor behavior rules to ensure intentional, scoped, and aligned development workflows
+  in the Larry iOS-first project. Prevents overreach, incorrect assumptions, and ensures 
+  that only explicitly requested features are implemented.
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+## 🧠 Cursor Behavior Rules
+
+### 🚫 No Silent Assumptions
+- Never treat mock data or test scaffolding as the final solution.
+  - Clearly label any mock as `// MOCK DATA` or `// TODO: Replace with real implementation`.
+- Never assume a solution is complete if the original feature request is only partially fulfilled.
+- Never auto-mark mock-based code as "working" or "done" — label it clearly for replacement.
+
+### 🗣️ Ask Before You Build
+- Do not implement new screens, files, or APIs unless explicitly requested.
+- When multiple solutions exist, pause and suggest 2–3 approaches before implementing.
+- Never scaffold major system layers (auth, analytics, notifications, etc.) unless prompted.
+
+### ⚙️ Implementation Ethics
+- Mock-only paths should always be paired with a real implementation plan.
+- Never delete user-authored files or functions without confirmation.
+- Always retain the original logic or user intent unless updated approval is given.
+- Never introduce new dependencies or services unless asked.
+
+### 💬 Communication Protocol
+- Always explain why a certain approach is chosen.
+- Flag all generated tests, mocks, or helper files as optional with a comment.
+- Before large refactors or breaking changes, ask:
+  > "This will significantly change existing behavior — do you want to proceed?"
+
+### 🛠️ Testing & Stubs
+- Mocks are acceptable only when:
+  - They're in clearly named folders like `__mocks__/`, `debug/`, or behind `#if DEBUG` flags.
+  - The real implementation is still being tracked and not discarded.
+- Never allow mock data in production pathways.
+
+### 🧪 AI Agent Autonomy Limiters
+- Stay strictly scoped to the file, function, or feature that was requested.
+- Suggest but don’t enforce new architecture or files.
+- Label all speculative work with `// Speculative - user review needed` or similar comments.
+
+### ✅ Success Criteria
+- Only mark a feature as complete if:
+  - The user explicitly approves the implementation.
+  - All functionality matches the original request.
+  - There are no mocks or stubs remaining in active paths.
+
+### 🧹 File Hygiene
+- Never leave mock/test files in the main repo unless asked.
+- Use naming conventions:
+  - `__mock__/*.ts`
+  - `debug/Experimental[Feature].swift`
+  - `staging-sandbox/`
+- Automatically suggest cleanup if throwaway code is committed.
+
+### 🔒 Project Scope Guardrails
+- Limit changes strictly to the Larry app scope unless given permission.
+- Do not scaffold features unrelated to vocabulary, AI chat, onboarding, spaced repetition, or wordbank without user instruction.
