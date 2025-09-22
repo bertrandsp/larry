@@ -123,8 +123,11 @@ proguard/
 
 # Docker
 docker-compose.override.yml
+docker-compose.yaml
+docker-compose.yaml.backup
 
 # API Keys and Secrets
 *credentials*
 *secret*
 *key*
+GOOGLE_CREDENTIALS.md
