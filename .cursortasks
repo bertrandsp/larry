@@ -1,0 +1,116 @@
+[
+  {
+    "name": "Start API Server",
+    "command": "pnpm dev:tsx",
+    "cwd": "api",
+    "description": "Start the Express API server with TypeScript hot reloading"
+  },
+  {
+    "name": "Seed Topic (Machine Learning)",
+    "command": "curl -X POST http://localhost:4000/admin/seed-topic -H 'x-admin-key: admin_key' -H 'Content-Type: application/json' -d '{\"topic\": \"machine-learning\", \"count\": 10}' | jq .",
+    "cwd": ".",
+    "description": "Generate 10 seed vocabulary terms for machine learning topic"
+  },
+  {
+    "name": "Ingest Topic (AI)",
+    "command": "curl -X POST http://localhost:4000/admin/bulk-import -H 'x-admin-key: admin_key' -H 'Content-Type: application/json' -d '{\"topic\": \"artificial-intelligence\", \"maxSources\": 5}' | jq .",
+    "cwd": ".",
+    "description": "Discover and ingest content for AI topic from multiple sources"
+  },
+  {
+    "name": "Open Prisma Studio",
+    "command": "pnpm prisma studio",
+    "cwd": "api",
+    "description": "Open Prisma Studio for database inspection and management"
+  },
+  {
+    "name": "Run All Tests",
+    "command": "pnpm test",
+    "cwd": "api",
+    "description": "Run the complete test suite (unit, integration, golden tests)"
+  },
+  {
+    "name": "Run Unit Tests Only",
+    "command": "pnpm test:unit",
+    "cwd": "api",
+    "description": "Run only unit tests for faster feedback"
+  },
+  {
+    "name": "Run Golden Tests",
+    "command": "pnpm test:golden",
+    "cwd": "api",
+    "description": "Run regression tests against golden files"
+  },
+  {
+    "name": "Health Check",
+    "command": "curl -s http://localhost:4000/health | jq .",
+    "cwd": ".",
+    "description": "Check API server health and dependencies"
+  },
+  {
+    "name": "Check Daily Endpoint",
+    "command": "curl -s http://localhost:4000/daily | jq .",
+    "cwd": ".",
+    "description": "Test the daily vocabulary selection endpoint"
+  },
+  {
+    "name": "View Metrics",
+    "command": "curl -s http://localhost:4000/metrics",
+    "cwd": ".",
+    "description": "View Prometheus metrics from the API server"
+  },
+  {
+    "name": "Generate Database Migration",
+    "command": "pnpm prisma migrate dev",
+    "cwd": "api",
+    "description": "Create and apply a new database migration"
+  },
+  {
+    "name": "Reset Database",
+    "command": "pnpm prisma migrate reset --force",
+    "cwd": "api",
+    "description": "Reset the database and apply all migrations (DESTRUCTIVE)"
+  },
+  {
+    "name": "TypeScript Check",
+    "command": "npx tsc --noEmit",
+    "cwd": "api",
+    "description": "Run TypeScript compilation check without emitting files"
+  },
+  {
+    "name": "Review Queue Status",
+    "command": "curl -s http://localhost:4000/admin/review -H 'x-admin-key: admin_key' | jq .",
+    "cwd": ".",
+    "description": "Check pending items in the human review queue"
+  },
+  {
+    "name": "Cost Gate Status",
+    "command": "curl -s http://localhost:4000/admin/cost/status -H 'x-admin-key: admin_key' | jq .",
+    "cwd": ".",
+    "description": "Check current OpenAI token usage and cost limits"
+  },
+  {
+    "name": "Discover Content",
+    "command": "curl -X POST http://localhost:4000/admin/discover-content -H 'x-admin-key: admin_key' -H 'Content-Type: application/json' -d '{\"topic\": \"programming\", \"maxSources\": 5, \"providers\": [\"wikipedia\", \"stackoverflow\"]}' | jq .",
+    "cwd": ".",
+    "description": "Trigger content discovery for programming topic using multiple providers"
+  },
+  {
+    "name": "Start Redis (Docker)",
+    "command": "docker run --rm -d -p 6379:6379 --name larry-redis redis:7",
+    "cwd": ".",
+    "description": "Start Redis server using Docker for job queues"
+  },
+  {
+    "name": "Stop Redis (Docker)",
+    "command": "docker stop larry-redis",
+    "cwd": ".",
+    "description": "Stop the Redis Docker container"
+  },
+  {
+    "name": "Debug Routes",
+    "command": "./scripts/debug-routes.sh",
+    "cwd": ".",
+    "description": "Run automated route debugging script to fix 404 issues"
+  }
+]
