@@ -77,6 +77,9 @@ router.post('/onboarding/complete', async (req, res) => {
       daily_word_goal
     });
 
+    // Set user context for RLS
+    await supabase.rpc('set_current_user_id', { user_id: userId });
+    
     // Check if user exists
     const { data: existingUser, error: userError } = await supabase
       .from('User')
@@ -85,31 +88,35 @@ router.post('/onboarding/complete', async (req, res) => {
       .single();
 
     if (userError || !existingUser) {
+      console.error('❌ User not found during onboarding:', userError);
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'User not found',
+        message: userError?.message
       });
     }
 
-    // Update user profile with onboarding data
+    // Update user profile with onboarding data (override existing values)
     const updateData: any = {
       onboardingCompleted: true,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // Always update these fields, even if empty (to override existing data)
+      name: name || existingUser.name,
+      username: username || existingUser.username,
+      professionCurrent: profession_current || null,
+      professionTarget: profession_target || null,
+      goal: goal || null,
+      hobbies: hobbies || [],
+      languages: languages || [],
+      travelLocation: travel_plan?.location || null,
+      travelDate: travel_plan?.start_date ? new Date(travel_plan.start_date).toISOString() : null,
+      preferredDifficulty: preferred_difficulty || 'intermediate',
+      enableNotifications: enable_notifications !== undefined ? enable_notifications : false,
+      notificationTime: notification_time || null,
+      dailyWordGoal: daily_word_goal || 1
     };
 
-    if (name) updateData.name = name;
-    if (username) updateData.username = username;
-    if (profession_current) updateData.professionCurrent = profession_current;
-    if (profession_target) updateData.professionTarget = profession_target;
-    if (goal) updateData.goal = goal;
-    if (hobbies) updateData.hobbies = hobbies;
-    if (languages) updateData.languages = languages;
-    if (travel_plan?.location) updateData.travelLocation = travel_plan.location;
-    if (travel_plan?.start_date) updateData.travelDate = new Date(travel_plan.start_date).toISOString();
-    if (preferred_difficulty) updateData.preferredDifficulty = preferred_difficulty;
-    if (enable_notifications !== undefined) updateData.enableNotifications = enable_notifications;
-    if (notification_time) updateData.notificationTime = notification_time;
-    if (daily_word_goal) updateData.dailyWordGoal = daily_word_goal;
+    console.log('📋 Update data prepared:', updateData);
 
     // Update user in database
     const { data: updatedUser, error: updateError } = await supabase
@@ -146,7 +153,9 @@ router.post('/onboarding/complete', async (req, res) => {
     res.json({
       success: true,
       message: 'Onboarding completed successfully',
-      user: updatedUser
+      user: updatedUser,
+      next_step: 'home', // Indicate that the client should navigate to home/daily word screen
+      onboarding_completed: true
     });
 
   } catch (error: any) {
