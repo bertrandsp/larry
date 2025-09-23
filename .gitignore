@@ -200,3 +200,8 @@ dump.rdb
 
 # Supabase
 supabase/.temp/
+# Environment files
+.env
+.env.local
+.env.backup
+*.env
