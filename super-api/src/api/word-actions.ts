@@ -1,4 +1,4 @@
-import express from 'express';
+import * as express from 'express';
 import { handleWordAction } from '../services/deliveryService';
 
 const router = express.Router();

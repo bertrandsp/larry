@@ -133,13 +133,25 @@ export async function getNextDailyWord(userId: string): Promise<WordSelection | 
   try {
     const result = await generateVocabulary({
       topic: topic.name,
+      numTerms: 1,
+      definitionStyle: 'casual',
+      sentenceRange: '2-4',
+      numExamples: 2,
+      numFacts: 1,
       termSelectionLevel: 'intermediate',
       definitionComplexityLevel: 'intermediate',
-      numTerms: 1
+      domainContext: 'general',
+      language: 'en',
+      useAnalogy: true,
+      includeSynonyms: true,
+      includeAntonyms: true,
+      includeRelatedTerms: true,
+      includeEtymology: false,
+      highlightRootWords: false
     });
     
-    if (result && result.terms && result.terms.length > 0) {
-      const newTerm = result.terms[0];
+    if (result && result.response && result.response.terms && result.response.terms.length > 0) {
+      const newTerm = result.response.terms[0];
       
       // Save the term to database
       const savedTerm = await database.terms.create({

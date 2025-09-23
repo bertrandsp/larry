@@ -1,4 +1,4 @@
-import express from 'express';
+import * as express from 'express';
 import { database } from '../utils/prisma';
 import { getNextDailyWord, createDelivery, addToWordbank } from '../services/deliveryService';
 

@@ -196,10 +196,22 @@ async function convertToDatabaseFormat(terms: any[], topicId?: string): Promise<
 // Save terms to database
 async function saveTermsToDatabase(terms: any[], topicId: string): Promise<void> {
   try {
-    await prisma.term.createMany({
-      data: terms,
-      skipDuplicates: true
-    });
+    // Save terms one by one since Supabase doesn't have createMany with skipDuplicates
+    for (const term of terms) {
+      try {
+        await prisma.term.create({
+          ...term,
+          topic_id: topicId
+        });
+      } catch (error: any) {
+        // Skip if duplicate (unique constraint on topicId + term)
+        if (error.code === '23505') {
+          console.log(`⚠️ Skipping duplicate term: ${term.term}`);
+          continue;
+        }
+        throw error;
+      }
+    }
     console.log(`💾 Saved ${terms.length} terms to database for topic: ${topicId}`);
   } catch (error) {
     console.error(`❌ Error saving terms to database:`, error);
@@ -210,12 +222,9 @@ async function saveTermsToDatabase(terms: any[], topicId: string): Promise<void>
 // Get user's preferred pipeline setting
 export async function getUserPreferredPipeline(userId: string): Promise<boolean> {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { openAiFirstPreferred: true }
-    });
+    const user = await prisma.user.getById(userId);
     
-    return user?.openAiFirstPreferred || false;
+    return user?.open_ai_first_preferred || false;
   } catch (error) {
     console.error('Error fetching user pipeline preference:', error);
     return false; // Default to source-first
@@ -225,9 +234,8 @@ export async function getUserPreferredPipeline(userId: string): Promise<boolean>
 // Set user's preferred pipeline setting
 export async function setUserPreferredPipeline(userId: string, openAiFirst: boolean): Promise<void> {
   try {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { openAiFirstPreferred: openAiFirst }
+    await prisma.user.update(userId, {
+      open_ai_first_preferred: openAiFirst
     });
     console.log(`✅ Updated user ${userId} pipeline preference to: ${openAiFirst ? 'OpenAI-first' : 'Source-first'}`);
   } catch (error) {
