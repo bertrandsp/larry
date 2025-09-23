@@ -81,19 +81,50 @@ router.post('/onboarding/complete', async (req, res) => {
     await supabase.rpc('set_current_user_id', { user_id: userId });
     
     // Check if user exists
-    const { data: existingUser, error: userError } = await supabase
+    let existingUser;
+    const { data: userData, error: userError } = await supabase
       .from('User')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (userError || !existingUser) {
-      console.error('❌ User not found during onboarding:', userError);
-      return res.status(404).json({
-        success: false,
-        error: 'User not found',
-        message: userError?.message
-      });
+    if (userError || !userData) {
+      console.log('🔄 User not found by ID, attempting to find by token pattern...');
+      
+      // Extract email from the user ID if it follows our pattern
+      const emailMatch = userId.match(/apple-user-([^-]+)/);
+      if (emailMatch) {
+        // Try to find user by email pattern
+        const emailPattern = emailMatch[1];
+        const { data: userByPattern, error: patternError } = await supabase
+          .from('User')
+          .select('*')
+          .ilike('email', `%${emailPattern.substring(0, 10)}%`) // Use first 10 chars to avoid too broad search
+          .single();
+          
+        if (!patternError && userByPattern) {
+          existingUser = userByPattern;
+          console.log('✅ Found user by email pattern:', existingUser.id);
+          // Update the user context to the real user ID
+          await supabase.rpc('set_current_user_id', { user_id: existingUser.id });
+        } else {
+          console.error('❌ User not found during onboarding:', userError);
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            message: `Could not find user with ID: ${userId}`
+          });
+        }
+      } else {
+        console.error('❌ User not found during onboarding:', userError);
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          message: userError?.message
+        });
+      }
+    } else {
+      existingUser = userData;
     }
 
     // Update user profile with onboarding data (override existing values)

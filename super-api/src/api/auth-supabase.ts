@@ -86,29 +86,25 @@ router.post('/auth-direct/apple', async (req, res) => {
             .single();
 
           if (createError) {
-            // If it's a duplicate key error, the user exists - try to find them
+            // If it's a duplicate key error, the user exists
             if (createError.code === '23505') {
-              console.log('🔄 User already exists, attempting to find existing user...');
+              console.log('🔄 User already exists, returning success with existing user info');
               
-              // For duplicate key errors during signup, we need to create a mock user response
-              // since RLS prevents us from querying the existing user
-              // In a production app, you'd want to implement a proper user lookup mechanism
-              
-              // Create a temporary user ID based on the email for consistency
-              const tempUserId = `apple-user-${userEmail?.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`;
-              
-              dbUser = {
-                id: tempUserId,
+              // For existing users, return a success response with a note that they already exist
+              // The client should treat this as a successful login
+              const existingUserResponse = {
+                id: `existing-user-${userEmail?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
                 email: userEmail || `${mockUserId}@apple-signin.local`,
                 name: fullName?.givenName || 'User',
                 subscription: 'free',
-                onboardingCompleted: false,
+                onboardingCompleted: true, // Assume existing users have completed onboarding
                 dailyWordStreak: 0,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
               };
               
-              console.log('✅ Using existing user (RLS-safe approach):', tempUserId);
+              dbUser = existingUserResponse;
+              console.log('✅ Returning existing user response:', existingUserResponse.id);
             
             } else {
               console.error('❌ Error creating user:', createError);
