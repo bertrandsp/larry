@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String       @id @default(uuid())
+  email                String       @unique
+  subscription         String       @default("free")
+  openAiFirstPreferred Boolean      @default(false) // User's preferred pipeline
+  
+  // Onboarding fields
+  name                 String?
+  username             String?
+  professionCurrent    String?
+  professionTarget     String?
+  goal                 String?
+  hobbies              String[]     @default([])
+  languages            String[]     @default([])
+  travelLocation       String?
+  travelDate           DateTime?
+  preferredDifficulty  String       @default("intermediate")
+  enableNotifications  Boolean      @default(false)
+  notificationTime     String?
+  dailyWordGoal        Int          @default(1)
+  onboardingCompleted  Boolean      @default(false)
+  
+  // Delivery tracking fields
+  firstVocabGenerated  Boolean      @default(false)
+  lastDailyWordDate    DateTime?
+  dailyWordStreak      Int          @default(0)
+  
+  topics               UserTopic[]
+  quota                UserQuota?
+  
+  // Add relations
+  deliveries           Delivery[]
+  wordbank             Wordbank[]
+  
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model Topic {
+  id              String        @id @default(uuid())
+  name            String
+  canonicalSetId  String?
+  canonicalSet    CanonicalSet? @relation(fields: [canonicalSetId], references: [id])
+  userTopics      UserTopic[]
+  terms           Term[]
+  facts           Fact[]
+  metricLogs      MetricLog[]
+}
+
+model UserTopic {
+  id      String  @id @default(uuid())
+  user    User    @relation(fields: [userId], references: [id])
+  userId  String
+  topic   Topic   @relation(fields: [topicId], references: [id])
+  topicId String
+  weight  Int
+}
+
+model Term {
+  id              String         @id @default(uuid())
+  topicId         String
+  topic           Topic          @relation(fields: [topicId], references: [id])
+  canonicalSetId  String?
+  canonicalSet    CanonicalSet?  @relation(fields: [canonicalSetId], references: [id])
+  term            String
+  definition      String
+  example         String
+  source          String
+  sourceUrl       String?
+  verified        Boolean
+  gptGenerated    Boolean
+  confidenceScore Float
+  category        String
+  complexityLevel String
+  createdAt       DateTime       @default(now())
+
+  // Admin moderation fields
+  moderationStatus String   @default("pending") // pending, approved, rejected
+  moderationNote   String?  // Optional reason for rejection or notes
+  updatedByAdmin   Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+  metricLogs       MetricLog[]
+
+  // Add delivery relations
+  deliveries       Delivery[]
+  wordbank         Wordbank[]
+
+  @@unique([topicId, term])
+}
+
+model Fact {
+  id           String   @id @default(uuid())
+  topicId      String
+  topic        Topic    @relation(fields: [topicId], references: [id])
+  fact         String
+  source       String
+  sourceUrl    String?
+  gptGenerated Boolean
+  category     String
+  createdAt    DateTime @default(now())
+
+  // Admin moderation fields
+  moderationStatus String   @default("pending") // pending, approved, rejected
+  moderationNote   String?  // Optional reason for rejection or notes
+  updatedByAdmin   Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+  metricLogs       MetricLog[]
+
+  @@unique([topicId, fact])
+}
+
+model CanonicalSet {
+  id     String   @id @default(uuid())
+  terms  Term[]
+  topics Topic[]
+}
+
+model UserQuota {
+  id            String   @id @default(uuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String   @unique
+  currentUsage  Int      @default(0)
+  periodStart   DateTime @default(now())
+  lastReset     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model MetricLog {
+  id        String   @id @default(uuid())
+  type      String   // e.g., "openai", "fallback", "pipeline_failure", "moderation"
+  topicId   String?
+  termId    String?
+  factId    String?
+  message   String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  // Optional relations for better querying
+  topic     Topic?   @relation(fields: [topicId], references: [id])
+  term      Term?    @relation(fields: [termId], references: [id])
+  fact      Fact?    @relation(fields: [factId], references: [id])
+
+  @@index([type])
+  @@index([topicId])
+  @@index([createdAt])
+  @@index([type, createdAt])
+}
+
+// New delivery tracking models
+model Delivery {
+  id           String        @id @default(uuid())
+  userId       String
+  termId       String
+  deliveredAt  DateTime      @default(now())
+  openedAt     DateTime?
+  action       DeliveryAction @default(NONE)
+  
+  user         User          @relation(fields: [userId], references: [id])
+  term         Term          @relation(fields: [termId], references: [id])
+  
+  @@index([userId])
+  @@index([deliveredAt])
+}
+
+model Wordbank {
+  id           String        @id @default(uuid())
+  userId       String
+  termId       String
+  status       WordStatus    @default(LEARNING)
+  bucket       Int           @default(1) // Spaced repetition bucket (1-5)
+  lastReviewed DateTime?
+  nextReview   DateTime?
+  reviewCount  Int           @default(0)
+  
+  user         User          @relation(fields: [userId], references: [id])
+  term         Term          @relation(fields: [termId], references: [id])
+  
+  @@unique([userId, termId])
+  @@index([userId])
+  @@index([nextReview])
+}
+
+enum DeliveryAction {
+  NONE
+  FAVORITE
+  LEARN_AGAIN
+  MASTERED
+}
+
+enum WordStatus {
+  LEARNING
+  REVIEWING
+  MASTERED
+  ARCHIVED
+}

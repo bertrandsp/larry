@@ -1,196 +1,287 @@
-import * as express from 'express';
-import { database } from '../utils/prisma';
-import { getNextDailyWord, createDelivery, addToWordbank } from '../services/deliveryService';
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import { createDelivery, addToWordbank } from '../services/deliveryService';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 /**
- * Get first daily word for user (immediately after onboarding)
+ * GET /first-daily
+ * Get the first vocabulary word immediately after onboarding
+ * This endpoint handles first-time users who just completed onboarding
  */
-router.get('/:userId', async (req, res) => {
+router.get('/first-daily', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.query.userId || req.headers['x-user-id'];
     
-    console.log(`🎯 Getting first daily word for user ${userId}`);
+    console.log('🎯 Getting first daily word for user:', userId);
     
-    // Check if user exists and has completed onboarding
-    const user = await database.users.getById(userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    if (!user.onboarding_completed) {
-      return res.status(400).json({ error: 'User must complete onboarding first' });
-    }
-    
-    // If first vocab already generated, get the existing delivery
-    if (user.first_vocab_generated) {
-      console.log(`✅ First vocab already generated, returning existing delivery`);
-      
-      // Get the most recent delivery for this user
-      const deliveries = await database.deliveries.getAll({ userId });
-      const latestDelivery = deliveries.sort((a, b) => 
-        new Date(b.delivered_at).getTime() - new Date(a.delivered_at).getTime()
-      )[0];
-      
-      if (latestDelivery) {
-        const term = await database.terms.getById(latestDelivery.term_id);
-        
-        if (term) {
-          return res.json({
-            success: true,
-            isFirstWord: true,
-            word: {
-              deliveryId: latestDelivery.id,
-              termId: term.id,
-              term: term.term,
-              definition: term.definition,
-              example: term.example,
-              category: term.category,
-              complexityLevel: term.complexity_level,
-              topicId: term.topic_id,
-              deliveredAt: latestDelivery.delivered_at,
-              openedAt: latestDelivery.opened_at,
-              action: latestDelivery.action
-            }
-          });
-        }
-      }
-    }
-    
-    // First vocab not generated yet, generate it now
-    console.log(`🚀 Generating first vocabulary for user ${userId}`);
-    
-    const wordSelection = await getNextDailyWord(userId);
-    
-    if (!wordSelection) {
-      return res.status(500).json({ 
-        error: 'Failed to generate first vocabulary',
-        message: 'Please try again in a few moments'
+    if (!userId) {
+      return res.status(400).json({ 
+        error: 'User ID required',
+        message: 'Please provide userId in query params or x-user-id header'
       });
     }
-    
-    // Create delivery record
-    const delivery = await createDelivery(userId, wordSelection.termId);
-    
-    // Add to wordbank for spaced repetition
-    await addToWordbank(userId, wordSelection.termId, 1);
-    
-    // Update user to mark first vocab as generated
-    await database.users.update(userId, {
-      first_vocab_generated: true,
-      last_daily_word_date: new Date().toISOString(),
-      daily_word_streak: 1
-    });
-    
-    console.log(`✅ First daily word delivered: ${wordSelection.term}`);
-    
-    res.json({
-      success: true,
-      isFirstWord: true,
-      word: {
-        deliveryId: delivery.id,
-        termId: wordSelection.termId,
-        term: wordSelection.term,
-        definition: wordSelection.definition,
-        example: wordSelection.example,
-        category: wordSelection.category,
-        complexityLevel: wordSelection.complexityLevel,
-        topicId: wordSelection.topicId,
-        deliveredAt: delivery.delivered_at,
-        openedAt: delivery.opened_at,
-        action: delivery.action
+
+    // Get user with topics
+    const user = await prisma.user.findUnique({
+      where: { id: userId as string },
+      include: {
+        topics: {
+          include: {
+            topic: true
+          }
+        }
       }
     });
-    
+
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: `User ${userId} does not exist`
+      });
+    }
+
+    if (!user.onboardingCompleted) {
+      return res.status(400).json({ 
+        error: 'Onboarding not completed',
+        message: 'User must complete onboarding before getting daily words'
+      });
+    }
+
+    // Check if user already has firstVocabGenerated
+    if (user.firstVocabGenerated) {
+      console.log('✅ User already has vocab generated, redirecting to regular daily endpoint');
+      return res.status(200).json({
+        success: true,
+        message: 'First vocab already generated',
+        redirect: '/daily',
+        firstVocabGenerated: true
+      });
+    }
+
+    // Check if user has topics
+    if (user.topics.length === 0) {
+      return res.status(400).json({ 
+        error: 'No topics selected',
+        message: 'User must select topics during onboarding'
+      });
+    }
+
+    console.log(`📚 User has ${user.topics.length} topics, looking for terms...`);
+
+    // Get terms from user's topics
+    const topicIds = user.topics.map(ut => ut.topicId);
+    const availableTerms = await prisma.term.findMany({
+      where: {
+        topicId: { in: topicIds },
+        moderationStatus: 'APPROVED'
+      },
+      include: { 
+        topic: true 
+      },
+      orderBy: { confidenceScore: 'desc' },
+      take: 10
+    });
+
+    console.log(`📖 Found ${availableTerms.length} available terms`);
+
+    // If no terms available, trigger generation and return loading state
+    if (availableTerms.length === 0) {
+      console.log('🚀 No terms available, triggering content generation...');
+      
+      // Trigger content generation for user's topics
+      for (const userTopic of user.topics) {
+        try {
+          const generateResponse = await fetch('http://localhost:4001/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic: userTopic.topic.name,
+              topicId: userTopic.topicId,
+              userTier: user.subscription || 'free',
+              priority: true // High priority for first-time users
+            })
+          });
+          
+          if (generateResponse.ok) {
+            console.log('✅ Content generation started for:', userTopic.topic.name);
+          }
+        } catch (error) {
+          console.error('❌ Failed to trigger generation for:', userTopic.topic.name, error);
+        }
+      }
+
+      return res.status(202).json({
+        success: false,
+        generating: true,
+        message: 'Generating your first vocabulary words...',
+        estimatedTime: '30-60 seconds',
+        retryAfter: 10 // Suggest retry after 10 seconds
+      });
+    }
+
+    // Select first available term
+    const selectedTerm = availableTerms[0];
+    console.log(`🎯 Selected first term: ${selectedTerm.term} from topic: ${selectedTerm.topic.name}`);
+
+    // Create delivery record
+    const delivery = await createDelivery(userId as string, selectedTerm.id);
+
+    // Add to wordbank
+    const wordbankEntry = await addToWordbank(userId as string, selectedTerm.id);
+
+    // Update user to mark first vocab as generated
+    await prisma.user.update({
+      where: { id: userId as string },
+      data: {
+        firstVocabGenerated: true,
+        lastDailyWordDate: new Date(),
+        dailyWordStreak: 1
+      }
+    });
+
+    // Get related facts
+    const facts = await prisma.fact.findMany({
+      where: { topicId: selectedTerm.topicId },
+      take: 3
+    });
+
+    const firstDailyWord = {
+      id: selectedTerm.id,
+      term: selectedTerm.term,
+      definition: selectedTerm.definition,
+      example: selectedTerm.example,
+      category: selectedTerm.category || 'Vocabulary',
+      complexityLevel: selectedTerm.complexityLevel || 'Intermediate',
+      source: selectedTerm.source || 'AI Generated',
+      sourceUrl: selectedTerm.sourceUrl,
+      confidenceScore: selectedTerm.confidenceScore || 0.95,
+      topic: selectedTerm.topic?.name || 'General Vocabulary',
+      facts: facts.map(f => ({
+        id: f.id,
+        fact: f.fact,
+        category: f.category || 'General'
+      })),
+      delivery: {
+        id: delivery.id,
+        deliveredAt: delivery.deliveredAt
+      },
+      wordbank: {
+        id: wordbankEntry.id,
+        bucket: wordbankEntry.bucket,
+        status: wordbankEntry.status
+      },
+      isFirstWord: true
+    };
+
+    console.log('✅ First daily word delivered successfully');
+
+    res.json({
+      success: true,
+      firstVocabGenerated: true,
+      dailyWord: firstDailyWord,
+      userProgress: {
+        wordsLearned: 1,
+        streak: 1,
+        level: 'Beginner'
+      },
+      message: 'Welcome to your vocabulary journey!'
+    });
+
   } catch (error: any) {
-    console.error('❌ Get first daily word error:', error);
+    console.error('❌ Error getting first daily word:', error);
     res.status(500).json({ 
       error: 'Failed to get first daily word',
-      details: error.message 
+      message: error.message,
+      generating: false
     });
   }
 });
 
 /**
- * Get regular daily word (for returning users)
+ * POST /first-daily/action
+ * Track user action on their first daily word
  */
-router.get('/daily/:userId', async (req, res) => {
+router.post('/first-daily/action', async (req, res) => {
   try {
-    const { userId } = req.params;
-    
-    console.log(`📅 Getting daily word for user ${userId}`);
-    
-    // Check if user exists and has completed onboarding
-    const user = await database.users.getById(userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    if (!user.onboarding_completed) {
-      return res.status(400).json({ error: 'User must complete onboarding first' });
-    }
-    
-    // Get next daily word using spaced repetition
-    const wordSelection = await getNextDailyWord(userId);
-    
-    if (!wordSelection) {
-      return res.status(500).json({ 
-        error: 'No vocabulary available',
-        message: 'Please add more topics to your interests'
+    const { deliveryId, action, wordbankId } = req.body;
+
+    if (!deliveryId || !action) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'deliveryId and action are required'
       });
     }
-    
-    // Create delivery record
-    const delivery = await createDelivery(userId, wordSelection.termId);
-    
-    // Update user's daily streak
-    const today = new Date().toDateString();
-    const lastWordDate = user.last_daily_word_date ? new Date(user.last_daily_word_date).toDateString() : null;
-    
-    let newStreak = user.daily_word_streak;
-    if (lastWordDate !== today) {
-      // Check if it's consecutive day
-      if (lastWordDate && new Date(today).getTime() - new Date(lastWordDate).getTime() === 24 * 60 * 60 * 1000) {
-        newStreak += 1;
-      } else {
-        newStreak = 1; // Reset streak if not consecutive
+
+    if (!['FAVORITE', 'LEARN_AGAIN', 'MASTERED'].includes(action)) {
+      return res.status(400).json({
+        error: 'Invalid action',
+        message: 'Action must be FAVORITE, LEARN_AGAIN, or MASTERED'
+      });
+    }
+
+    console.log(`🎬 Recording first daily word action: ${action} for delivery ${deliveryId}`);
+
+    // Update delivery record
+    await prisma.delivery.update({
+      where: { id: deliveryId },
+      data: { 
+        action,
+        openedAt: new Date()
+      }
+    });
+
+    // Update wordbank if provided
+    if (wordbankId) {
+      const wordbank = await prisma.wordbank.findUnique({
+        where: { id: wordbankId }
+      });
+
+      if (wordbank) {
+        let updateData: any = {
+          lastReviewed: new Date(),
+          reviewCount: wordbank.reviewCount + 1
+        };
+
+        // Calculate next review based on action
+        const nextReview = new Date();
+        switch (action) {
+          case 'LEARN_AGAIN':
+            updateData.bucket = 1;
+            nextReview.setDate(nextReview.getDate() + 1);
+            updateData.nextReview = nextReview;
+            break;
+          case 'FAVORITE':
+            nextReview.setDate(nextReview.getDate() + Math.pow(2, wordbank.bucket));
+            updateData.nextReview = nextReview;
+            break;
+          case 'MASTERED':
+            updateData.status = 'MASTERED';
+            updateData.nextReview = null;
+            break;
+        }
+
+        await prisma.wordbank.update({
+          where: { id: wordbankId },
+          data: updateData
+        });
       }
     }
-    
-    await database.users.update(userId, {
-      last_daily_word_date: new Date().toISOString(),
-      daily_word_streak: newStreak
-    });
-    
-    console.log(`✅ Daily word delivered: ${wordSelection.term} (streak: ${newStreak})`);
-    
+
+    console.log('✅ First daily word action recorded successfully');
+
     res.json({
       success: true,
-      isFirstWord: false,
-      word: {
-        deliveryId: delivery.id,
-        termId: wordSelection.termId,
-        term: wordSelection.term,
-        definition: wordSelection.definition,
-        example: wordSelection.example,
-        category: wordSelection.category,
-        complexityLevel: wordSelection.complexityLevel,
-        topicId: wordSelection.topicId,
-        deliveredAt: delivery.delivered_at,
-        openedAt: delivery.opened_at,
-        action: delivery.action
-      },
-      streak: newStreak
+      message: `Action ${action} recorded successfully`,
+      action
     });
-    
+
   } catch (error: any) {
-    console.error('❌ Get daily word error:', error);
+    console.error('❌ Error recording first daily word action:', error);
     res.status(500).json({ 
-      error: 'Failed to get daily word',
-      details: error.message 
+      error: 'Failed to record action',
+      message: error.message
     });
   }
 });

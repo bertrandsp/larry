@@ -24,9 +24,47 @@ export async function generateTermsAndFacts({ userId, topicId, topicName, userTi
   });
 
   try {
-    // Step 1: Check for existing canonical set
-    const canonicalSetResult = await getOrCreateCanonicalSetForTopic(topicName);
-    console.log(`🔍 Canonical set: ${canonicalSetResult.wasCreated ? 'created' : 'found existing'} for topic: ${topicName}`);
+    // Step 1: Get or create topic by name (not by hardcoded ID)
+    let existingTopic = await prisma.topic.findFirst({
+      where: { name: topicName },
+      include: { canonicalSet: true }
+    });
+
+    let actualTopicId: string;
+    let canonicalSetId: string;
+
+    if (existingTopic) {
+      actualTopicId = existingTopic.id;
+      if (existingTopic.canonicalSetId) {
+        canonicalSetId = existingTopic.canonicalSetId;
+        console.log(`🔍 Using existing topic: ${topicName} with canonical set: ${canonicalSetId}`);
+      } else {
+        // Create a new canonical set for this existing topic
+        const newCanonicalSet = await prisma.canonicalSet.create({
+          data: {}
+        });
+        await prisma.topic.update({
+          where: { id: actualTopicId },
+          data: { canonicalSetId: newCanonicalSet.id }
+        });
+        canonicalSetId = newCanonicalSet.id;
+        console.log(`🔍 Created new canonical set: ${canonicalSetId} for existing topic: ${topicName}`);
+      }
+    } else {
+      // Create a new topic with canonical set
+      const newCanonicalSet = await prisma.canonicalSet.create({
+        data: {}
+      });
+      const newTopic = await prisma.topic.create({
+        data: {
+          name: topicName,
+          canonicalSetId: newCanonicalSet.id
+        }
+      });
+      actualTopicId = newTopic.id;
+      canonicalSetId = newCanonicalSet.id;
+      console.log(`🆕 Created new topic: ${topicName} with canonical set: ${canonicalSetId}`);
+    }
 
     // Step 2: OpenAI generates terms + facts (TIER-LIMITED)
     const { response } = await generateVocabulary({
@@ -36,8 +74,8 @@ export async function generateTermsAndFacts({ userId, topicId, topicName, userTi
       sentenceRange: '2-3',
       numExamples: 2,
       numFacts: userTier === 'free' ? 3 : 5,
-      termVocabularyTier: userTier === 'free' ? 'beginner' : 'intermediate',
-      explanationTier: userTier === 'free' ? 'beginner' : 'intermediate',
+      termSelectionLevel: userTier === 'free' ? 'beginner' : 'intermediate',
+      definitionComplexityLevel: userTier === 'free' ? 'beginner' : 'intermediate',
       domainContext: topicName,
       language: 'en',
       useAnalogy: true,
@@ -94,18 +132,18 @@ export async function generateTermsAndFacts({ userId, topicId, topicName, userTi
 
     // Step 7: Filter out duplicates before saving
     console.log(`🔍 Checking for duplicates before saving...`);
-    const uniqueTerms = await filterDuplicateTerms(topicId, finalTerms);
-    const uniqueFacts = await filterDuplicateFacts(topicId, postProcessedFacts);
+    const uniqueTerms = await filterDuplicateTerms(actualTopicId, finalTerms);
+    const uniqueFacts = await filterDuplicateFacts(actualTopicId, postProcessedFacts);
     
     // Get duplicate statistics
-    const duplicateStats = await getDuplicateStats(topicId, finalTerms, postProcessedFacts);
+    const duplicateStats = await getDuplicateStats(actualTopicId, finalTerms, postProcessedFacts);
     console.log(`📊 Duplicate prevention stats:`, duplicateStats);
 
     // Step 8: Prepare terms for database with canonical set linking
     const enrichedTerms = uniqueTerms.map((term: any) => ({
       ...term,
-      topicId,
-      canonicalSetId: canonicalSetResult.id,
+      topicId: actualTopicId,
+      canonicalSetId: canonicalSetId,
     }));
 
     // Step 9: Save to DB (only unique terms/facts) with error handling
@@ -141,7 +179,7 @@ export async function generateTermsAndFacts({ userId, topicId, topicName, userTi
       try {
         await prisma.fact.createMany({ 
           data: uniqueFacts.map((fact: any) => ({
-            topicId,
+            topicId: actualTopicId,
             fact: fact.fact,
             source: fact.source || 'AI Generated',
             sourceUrl: fact.sourceUrl,
@@ -176,7 +214,7 @@ export async function generateTermsAndFacts({ userId, topicId, topicName, userTi
       termsGenerated: enrichedTerms.length,
       factsGenerated: uniqueFacts.length,
       topicName,
-      canonicalSetId: canonicalSetResult.id,
+      canonicalSetId: canonicalSetId,
       postProcessingStats: postProcessedTerms.stats,
       duplicateStats,
     };

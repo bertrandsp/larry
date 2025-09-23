@@ -97,7 +97,7 @@ function validateSingleTerm(
   const complexityLevel = determineComplexityLevel(term, topic, definitionComplexityLevel);
   
   // Generate tags
-  const tags = generateTags(term, topic);
+  const tags = generateTags(term, topic, definitionComplexityLevel);
   
   // Determine category
   const category = determineCategory(term, topic);
@@ -216,7 +216,7 @@ function determineComplexityLevel(term: any, topic: string, definitionComplexity
 }
 
 // Generate relevant tags
-function generateTags(term: any, topic: string): string[] {
+function generateTags(term: any, topic: string, definitionComplexityLevel: 'beginner' | 'intermediate' | 'advanced' = 'intermediate'): string[] {
   const tags: string[] = [];
   
   // Topic-based tags
@@ -246,7 +246,7 @@ function generateTags(term: any, topic: string): string[] {
   }
   
   // Complexity tags
-  const complexity = determineComplexityLevel(term, topic);
+  const complexity = determineComplexityLevel(term, topic, definitionComplexityLevel);
   tags.push(complexity);
   
   return [...new Set(tags)]; // Remove duplicates

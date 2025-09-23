@@ -1,4 +1,4 @@
-import { database } from '../utils/prisma';
+import { prisma } from '../utils/prisma';
 import logger from '../utils/logger';
 
 export interface MetricLogData {
@@ -26,24 +26,30 @@ export async function logMetric({
   try {
     // If topicId is provided, verify it exists to avoid foreign key constraint errors
     if (topicId) {
-      try {
-        await database.topics.getById(topicId);
-        console.log(`✅ Topic found for metric logging: ${topicId}`);
-      } catch (error) {
+      const topicExists = await prisma.topic.findUnique({
+        where: { id: topicId },
+        select: { id: true }
+      });
+      
+      if (!topicExists) {
         console.log(`⚠️ Topic not found for metric logging: ${topicId}`);
         logger.warn('Topic not found for metric logging', { topicId, type, message });
         // Log without topicId to avoid foreign key constraint error
         topicId = undefined;
+      } else {
+        console.log(`✅ Topic found for metric logging: ${topicId}`);
       }
     }
 
-    const result = await database.metrics.create({
-      type,
-      topic_id: topicId,
-      term_id: termId,
-      fact_id: factId,
-      message,
-      metadata
+    const result = await prisma.metricLog.create({
+      data: {
+        type,
+        topicId,
+        termId,
+        factId,
+        message,
+        metadata
+      }
     });
 
     console.log(`✅ Metric logged successfully: ${result.id}`);
@@ -219,28 +225,45 @@ export async function getMetricsSummary(days: number = 7) {
       pipelineMetrics
     ] = await Promise.all([
       // OpenAI usage by prompt type
-      database.metrics.getGroupedMetrics({
-        type: 'openai',
-        createdAt: { gte: since }
+      prisma.metricLog.groupBy({
+        by: ['metadata'],
+        where: {
+          type: 'openai',
+          createdAt: { gte: since }
+        },
+        _count: true
       }),
 
       // Most common fallback reasons
-      database.metrics.getGroupedMetrics({
-        type: 'fallback',
-        createdAt: { gte: since },
-        limit: 10
+      prisma.metricLog.groupBy({
+        by: ['metadata'],
+        where: {
+          type: 'fallback',
+          createdAt: { gte: since }
+        },
+        _count: true,
+        orderBy: { _count: { metadata: 'desc' } },
+        take: 10
       }),
 
       // Moderation actions
-      database.metrics.getGroupedMetrics({
-        type: 'moderation',
-        createdAt: { gte: since }
+      prisma.metricLog.groupBy({
+        by: ['metadata'],
+        where: {
+          type: 'moderation',
+          createdAt: { gte: since }
+        },
+        _count: true
       }),
 
       // Pipeline outcomes
-      database.metrics.getGroupedMetrics({
-        type: 'pipeline',
-        createdAt: { gte: since }
+      prisma.metricLog.groupBy({
+        by: ['metadata'],
+        where: {
+          type: 'pipeline',
+          createdAt: { gte: since }
+        },
+        _count: true
       })
     ]);
 
@@ -262,47 +285,35 @@ export async function getMetricsSummary(days: number = 7) {
  */
 export async function getMostFlaggedTerms(limit: number = 10) {
   try {
-    // Get moderation metrics
-    const flaggedMetrics = await database.metrics.getAll({
-      type: 'moderation'
+    const flaggedTerms = await prisma.metricLog.groupBy({
+      by: ['termId', 'metadata'],
+      where: {
+        type: 'moderation',
+        metadata: {
+          path: ['action'],
+          equals: 'reject'
+        }
+      },
+      _count: true,
+      orderBy: { _count: { termId: 'desc' } },
+      take: limit
     });
-
-    // Filter for rejected terms and group by term_id
-    const flaggedTerms = flaggedMetrics.filter((metric: any) => 
-      metric.metadata && metric.metadata.action === 'reject' && metric.term_id
-    );
-
-    // Group by term_id and count
-    const grouped: any = {};
-    flaggedTerms.forEach((metric: any) => {
-      const termId = metric.term_id;
-      if (!grouped[termId]) {
-        grouped[termId] = {
-          termId,
-          metadata: metric.metadata,
-          flagCount: 0
-        };
-      }
-      grouped[termId].flagCount++;
-    });
-
-    // Sort by flag count and take top results
-    const sortedFlagged = Object.values(grouped)
-      .sort((a: any, b: any) => b.flagCount - a.flagCount)
-      .slice(0, limit);
 
     // Get term details
-    const termIds = sortedFlagged.map((f: any) => f.termId);
-    const terms = await database.terms.getAll({ ids: termIds });
+    const termIds = flaggedTerms.map(f => f.termId).filter((id): id is string => id !== null);
+    const terms = await prisma.term.findMany({
+      where: { id: { in: termIds } },
+      select: { id: true, term: true, definition: true, topicId: true }
+    });
 
-    return sortedFlagged.map((flagged: any) => {
-      const term = terms.find((t: any) => t.id === flagged.termId);
+    return flaggedTerms.map(flagged => {
+      const term = terms.find(t => t.id === flagged.termId);
       return {
         termId: flagged.termId,
         term: term?.term,
         definition: term?.definition,
-        topicId: term?.topic_id,
-        flagCount: flagged.flagCount,
+        topicId: term?.topicId,
+        flagCount: (flagged._count as any).termId || 0,
         metadata: flagged.metadata
       };
     });
