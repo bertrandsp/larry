@@ -209,6 +209,135 @@ export const database = {
       
       return Object.values(grouped);
     }
+  },
+
+  // Delivery operations
+  deliveries: {
+    async getAll(filters?: any) {
+      let query = db.from('deliveries').select('*');
+      
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId);
+      }
+      
+      if (filters?.termId) {
+        query = query.eq('term_id', filters.termId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    
+    async create(deliveryData: any) {
+      const { data, error } = await db.from('deliveries').insert(deliveryData).select().single();
+      if (error) throw error;
+      return data;
+    },
+    
+    async update(id: string, updateData: any) {
+      const { data, error } = await db.from('deliveries').update(updateData).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    
+    async getById(id: string) {
+      const { data, error } = await db.from('deliveries').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    }
+  },
+
+  // Wordbank operations
+  wordbank: {
+    async getAll(filters?: any) {
+      let query = db.from('wordbank').select('*');
+      
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId);
+      }
+      
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+      
+      if (filters?.bucket) {
+        query = query.eq('bucket', filters.bucket);
+      }
+      
+      if (filters?.nextReview && filters.nextReview.lte) {
+        query = query.lte('next_review', filters.nextReview.lte);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    
+    async create(wordbankData: any) {
+      const { data, error } = await db.from('wordbank').insert(wordbankData).select().single();
+      if (error) throw error;
+      return data;
+    },
+    
+    async update(id: string, updateData: any) {
+      const { data, error } = await db.from('wordbank').update(updateData).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    
+    async getByUserAndTerm(userId: string, termId: string) {
+      const { data, error } = await db.from('wordbank')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('term_id', termId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
+      return data;
+    },
+    
+    async getNextReviewWords(userId: string) {
+      const now = new Date().toISOString();
+      const { data, error } = await db.from('wordbank')
+        .select('*')
+        .eq('user_id', userId)
+        .lte('next_review', now)
+        .order('next_review', { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    }
+  },
+
+  // User Topic operations
+  userTopics: {
+    async getAll(filters?: any) {
+      let query = db.from('user_topics').select('*');
+      
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId);
+      }
+      
+      if (filters?.topicId) {
+        query = query.eq('topic_id', filters.topicId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    
+    async create(userTopicData: any) {
+      const { data, error } = await db.from('user_topics').insert(userTopicData).select().single();
+      if (error) throw error;
+      return data;
+    },
+    
+    async delete(id: string) {
+      const { error } = await db.from('user_topics').delete().eq('id', id);
+      if (error) throw error;
+    }
   }
 };
 
@@ -220,7 +349,10 @@ export const prisma = {
   fact: database.facts,
   metricLog: database.metrics,
   jobMetric: database.metrics, // Alias
-  userProgress: database.users // Alias
+  userProgress: database.users, // Alias
+  delivery: database.deliveries,
+  wordbank: database.wordbank,
+  userTopic: database.userTopics
 };
 
 

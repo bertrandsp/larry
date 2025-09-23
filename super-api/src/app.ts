@@ -7,6 +7,9 @@ import dotenv from 'dotenv';
 // import termRoutes from './api/terms';
 // import adminRoutes from './api/admin';
 import generateRoutes from './api/generate';
+import onboardingRoutes from './api/onboarding';
+import firstDailyRoutes from './api/first-daily';
+import wordActionsRoutes from './api/word-actions';
 
 dotenv.config();
 
@@ -35,7 +38,10 @@ app.get('/', (_, res) => res.send('Larry Backend Service is up 🚀'));
 // app.use('/', topicRoutes);
 // app.use('/', termRoutes);
 // app.use('/admin', adminRoutes);
-// app.use('/', generateRoutes);
+app.use('/onboarding', onboardingRoutes);
+app.use('/first-daily', firstDailyRoutes);
+app.use('/word-actions', wordActionsRoutes);
+app.use('/', generateRoutes);
 
 // Real AI endpoints with simplified error handling
 import { generateVocabulary } from './services/openAiService';
