@@ -71,8 +71,8 @@ router.post('/user', async (req, res) => {
         name,
         subscription,
         openAiFirstPreferred: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
       .select()
       .single();

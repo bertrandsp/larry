@@ -45,8 +45,8 @@ router.post('/auth-direct/apple', async (req, res) => {
         subscription: 'free',
         onboardingCompleted: false,
         dailyWordStreak: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
     } else {
       // Real Supabase mode with proper RLS handling
@@ -82,8 +82,8 @@ router.post('/auth-direct/apple', async (req, res) => {
               email: userEmail || `${mockUserId}@apple-signin.local`,
               subscription: 'free',
               openAiFirstPreferred: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
             })
             .select()
             .single();
