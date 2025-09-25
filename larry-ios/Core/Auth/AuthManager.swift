@@ -600,6 +600,16 @@ class AuthManager: NSObject, ObservableObject {
         
         if let user = response.user {
             userDefaults.set(user.id, forKey: KeychainKeys.userID)
+            
+            #if DEBUG
+            print("✅ Authentication successful")
+            print("✅ User onboarding status: \(user.onboardingCompleted)")
+            if user.onboardingCompleted {
+                print("✅ Existing user - will navigate to home screen")
+            } else {
+                print("✅ New user - will show onboarding flow")
+            }
+            #endif
         }
         
         #if DEBUG
