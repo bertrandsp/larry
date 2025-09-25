@@ -220,6 +220,122 @@ class AuthManager: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Sign In with Email/Password
+    
+    func signInWithEmail(_ email: String, password: String) async throws {
+        #if DEBUG
+        print("📧 ===== EMAIL SIGN IN STARTED =====")
+        print("📧 Email: \(email)")
+        #endif
+        
+        authState = .signingIn
+        
+        do {
+            let authRequest = EmailAuthRequest(
+                email: email,
+                password: password
+            )
+            
+            #if DEBUG
+            print("📧 Making API request to: /auth-direct/login")
+            #endif
+            
+            let apiRequest = try APIRequest(
+                method: .POST,
+                path: "/auth-direct/login",
+                body: authRequest
+            )
+            
+            let response: AuthResponse = try await APIService.shared.send(
+                apiRequest,
+                responseType: AuthResponse.self
+            )
+            
+            #if DEBUG
+            print("📧 ✅ API call successful!")
+            print("📧   - Access token received: \(response.accessToken.prefix(10))...")
+            print("📧   - User: \(response.user?.email ?? "nil")")
+            #endif
+            
+            await handleSuccessfulAuth(response)
+            
+            #if DEBUG
+            print("📧 ===== EMAIL SIGN IN SUCCESSFUL =====")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("📧 ❌ ===== EMAIL SIGN IN FAILED =====")
+            print("📧 Error details:")
+            print("📧   - Error type: \(type(of: error))")
+            print("📧   - Error description: \(error.localizedDescription)")
+            print("📧   - Full error: \(error)")
+            #endif
+            
+            authState = .error(error.localizedDescription)
+            throw error
+        }
+    }
+    
+    // MARK: - Sign Up with Email/Password
+    
+    func signUpWithEmail(_ email: String, password: String, name: String?) async throws {
+        #if DEBUG
+        print("📧 ===== EMAIL SIGN UP STARTED =====")
+        print("📧 Email: \(email)")
+        print("📧 Name: \(name ?? "nil")")
+        #endif
+        
+        authState = .signingIn
+        
+        do {
+            let authRequest = EmailSignUpRequest(
+                email: email,
+                password: password,
+                name: name
+            )
+            
+            #if DEBUG
+            print("📧 Making API request to: /auth-direct/signup")
+            #endif
+            
+            let apiRequest = try APIRequest(
+                method: .POST,
+                path: "/auth-direct/signup",
+                body: authRequest
+            )
+            
+            let response: AuthResponse = try await APIService.shared.send(
+                apiRequest,
+                responseType: AuthResponse.self
+            )
+            
+            #if DEBUG
+            print("📧 ✅ API call successful!")
+            print("📧   - Access token received: \(response.accessToken.prefix(10))...")
+            print("📧   - User: \(response.user?.email ?? "nil")")
+            #endif
+            
+            await handleSuccessfulAuth(response)
+            
+            #if DEBUG
+            print("📧 ===== EMAIL SIGN UP SUCCESSFUL =====")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("📧 ❌ ===== EMAIL SIGN UP FAILED =====")
+            print("📧 Error details:")
+            print("📧   - Error type: \(type(of: error))")
+            print("📧   - Error description: \(error.localizedDescription)")
+            print("📧   - Full error: \(error)")
+            #endif
+            
+            authState = .error(error.localizedDescription)
+            throw error
+        }
+    }
+    
     // MARK: - Sign In with Google
     
     func signInWithGoogle() async throws {
@@ -634,6 +750,17 @@ private struct GoogleAuthRequest: Codable {
 
 private struct RefreshTokenRequest: Codable {
     let refreshToken: String
+}
+
+private struct EmailAuthRequest: Codable {
+    let email: String
+    let password: String
+}
+
+private struct EmailSignUpRequest: Codable {
+    let email: String
+    let password: String
+    let name: String?
 }
 
 private struct AuthResponse: Codable {

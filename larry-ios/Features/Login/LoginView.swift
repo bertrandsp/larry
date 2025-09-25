@@ -13,6 +13,11 @@ struct LoginView: View {
     @EnvironmentObject private var authManager: AuthManager
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingEmailAuth = false
+    @State private var isSignUp = false
+    @State private var email = ""
+    @State private var password = ""
+    @State private var name = ""
     
     var body: some View {
         GeometryReader { geometry in
@@ -94,6 +99,52 @@ struct LoginView: View {
                         }
                         .cornerRadius(28)
                         .disabled(authManager.authState.isLoading)
+                        
+                        // Email/Password Sign In
+                        Button(action: {
+                            isSignUp = false
+                            showingEmailAuth = true
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "envelope.fill")
+                                    .foregroundColor(.white)
+                                    .frame(width: 24, height: 24)
+                                
+                                Text("Sign In with Email")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .frame(height: 56)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
+                        .cornerRadius(28)
+                        .disabled(authManager.authState.isLoading)
+                        
+                        // Create Account
+                        Button(action: {
+                            isSignUp = true
+                            showingEmailAuth = true
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.badge.plus.fill")
+                                    .foregroundColor(.green)
+                                    .frame(width: 24, height: 24)
+                                
+                                Text("Create Account")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .frame(height: 56)
+                        .frame(maxWidth: .infinity)
+                        .background(Color(.systemBackground))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28)
+                                .stroke(Color.green, lineWidth: 2)
+                        }
+                        .cornerRadius(28)
+                        .disabled(authManager.authState.isLoading)
                     }
                     .padding(.horizontal, 24)
                     
@@ -157,6 +208,24 @@ struct LoginView: View {
                 showingError = true
             }
         }
+        .sheet(isPresented: $showingEmailAuth) {
+            EmailAuthView(
+                isSignUp: isSignUp,
+                email: $email,
+                password: $password,
+                name: $name,
+                onSubmit: { email, password, name in
+                    Task {
+                        await handleEmailAuth(email: email, password: password, name: name)
+                    }
+                },
+                onCancel: {
+                    showingEmailAuth = false
+                    clearEmailFields()
+                }
+            )
+            .environmentObject(authManager)
+        }
     }
     
     // MARK: - Sign-In Handlers
@@ -181,6 +250,27 @@ struct LoginView: View {
             // Error is already handled by AuthManager
             print("Google Sign-In error: \(error)")
         }
+    }
+    
+    private func handleEmailAuth(email: String, password: String, name: String?) async {
+        do {
+            if isSignUp {
+                try await authManager.signUpWithEmail(email, password: password, name: name)
+            } else {
+                try await authManager.signInWithEmail(email, password: password)
+            }
+            showingEmailAuth = false
+            clearEmailFields()
+        } catch {
+            // Error is already handled by AuthManager
+            print("Email auth error: \(error)")
+        }
+    }
+    
+    private func clearEmailFields() {
+        email = ""
+        password = ""
+        name = ""
     }
 }
 

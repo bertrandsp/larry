@@ -6,6 +6,205 @@ const isMockMode = !supabase;
 
 const router = express.Router();
 
+// POST /auth-direct/signup - Handle Email/Password Signup
+router.post('/auth-direct/signup', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+    
+    console.log('📧 Email signup request received:', { email, hasPassword: !!password, name });
+    
+    // Generate user ID based on email
+    const userId = `email-user-${email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+    
+    let dbUser;
+    
+    if (isMockMode) {
+      console.log('🔄 Mock mode: Creating mock user for email signup');
+      dbUser = {
+        id: userId,
+        email: email,
+        name: name || 'User',
+        subscription: 'free',
+        onboardingCompleted: false,
+        dailyWordStreak: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // Real Supabase mode
+      if (!supabase) throw new Error('Supabase client not initialized');
+      
+      console.log('🔄 Creating new user with email/password...');
+      
+      // Set user context for RLS
+      await supabase.rpc('set_current_user_id', { user_id: userId });
+      
+      // Check if user already exists
+      const { data: existingUser, error: findError } = await supabase
+        .from('User')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (!findError && existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'User already exists with this email'
+        });
+      }
+      
+      // Create new user
+      const { data: newUser, error: createError } = await supabase
+        .from('User')
+        .insert({
+          id: userId,
+          email: email,
+          name: name || 'User',
+          subscription: 'free',
+          openAiFirstPreferred: false,
+          onboardingCompleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('❌ Error creating user:', createError);
+        throw createError;
+      }
+      
+      dbUser = newUser;
+      console.log('✅ Created new user:', dbUser.id);
+    }
+    
+    // Generate mock tokens
+    const accessToken = `access_${dbUser.id}_${Date.now()}`;
+    const refreshToken = `refresh_${dbUser.id}_${Date.now()}`;
+    
+    res.json({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name || "User",
+        profile_image_url: "",
+        created_at: new Date(dbUser.createdAt).toISOString(),
+        updated_at: new Date(dbUser.updatedAt).toISOString(),
+        onboarding_completed: dbUser.onboardingCompleted || false,
+        streak_count: dbUser.dailyWordStreak || 0,
+        total_words_learned: 0,
+        subscription: dbUser.subscription
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Email signup error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Signup failed',
+      message: error.message
+    });
+  }
+});
+
+// POST /auth-direct/login - Handle Email/Password Login
+router.post('/auth-direct/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+    
+    console.log('📧 Email login request received:', { email, hasPassword: !!password });
+    
+    // Generate user ID based on email
+    const userId = `email-user-${email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+    
+    let dbUser;
+    
+    if (isMockMode) {
+      console.log('🔄 Mock mode: Finding mock user for email login');
+      // In mock mode, assume user exists if they're trying to login
+      dbUser = {
+        id: userId,
+        email: email,
+        name: 'User',
+        subscription: 'free',
+        onboardingCompleted: false, // Default to false for testing
+        dailyWordStreak: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // Real Supabase mode
+      if (!supabase) throw new Error('Supabase client not initialized');
+      
+      console.log('🔄 Finding user by email...');
+      
+      // Set user context for RLS
+      await supabase.rpc('set_current_user_id', { user_id: userId });
+      
+      const { data: user, error: findError } = await supabase
+        .from('User')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (findError || !user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+      
+      dbUser = user;
+      console.log('✅ Found user:', dbUser.id);
+    }
+    
+    // Generate mock tokens
+    const accessToken = `access_${dbUser.id}_${Date.now()}`;
+    const refreshToken = `refresh_${dbUser.id}_${Date.now()}`;
+    
+    res.json({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user: {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name || "User",
+        profile_image_url: "",
+        created_at: new Date(dbUser.createdAt).toISOString(),
+        updated_at: new Date(dbUser.updatedAt).toISOString(),
+        onboarding_completed: dbUser.onboardingCompleted || false,
+        streak_count: dbUser.dailyWordStreak || 0,
+        total_words_learned: 0,
+        subscription: dbUser.subscription
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Email login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Login failed',
+      message: error.message
+    });
+  }
+});
+
 // POST /auth-direct/apple - Handle Apple Sign In
 router.post('/auth-direct/apple', async (req, res) => {
   try {

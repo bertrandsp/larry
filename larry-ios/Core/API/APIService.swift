@@ -40,7 +40,7 @@ class APIService: ObservableObject {
             
             // Default to network IP for iOS Simulator compatibility
             // Change this to "localhost" if testing on physical device via USB
-            return "http://192.168.1.101:4001"
+            return "http://192.168.4.109:4001"
         }
         #endif
     }
