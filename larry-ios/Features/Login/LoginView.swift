@@ -13,7 +13,7 @@ struct LoginView: View {
     @EnvironmentObject private var authManager: AuthManager
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var showingEmailAuth = false
+    @State private var showingEmailForm = false
     @State private var isSignUp = false
     @State private var email = ""
     @State private var password = ""
@@ -53,11 +53,8 @@ struct LoginView: View {
                     Spacer()
                         .frame(height: geometry.size.height * 0.1)
                     
-                    // Sign-in options
                     VStack(spacing: 16) {
-                        // Sign in with Apple
                         SignInWithAppleButton(.signIn) { request in
-                            // Configure the request
                             request.requestedScopes = [.fullName, .email]
                         } onCompletion: { result in
                             Task {
@@ -68,14 +65,12 @@ struct LoginView: View {
                         .frame(height: 56)
                         .cornerRadius(28)
                         
-                        // Sign in with Google
                         Button(action: {
                             Task {
                                 await handleGoogleSignIn()
                             }
                         }) {
                             HStack(spacing: 12) {
-                                // Google logo placeholder
                                 Circle()
                                     .fill(Color.white)
                                     .frame(width: 24, height: 24)
@@ -84,7 +79,6 @@ struct LoginView: View {
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundColor(.blue)
                                     }
-                                
                                 Text("Continue with Google")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(.primary)
@@ -100,17 +94,17 @@ struct LoginView: View {
                         .cornerRadius(28)
                         .disabled(authManager.authState.isLoading)
                         
-                        // Email/Password Sign In
                         Button(action: {
-                            isSignUp = false
-                            showingEmailAuth = true
+                            withAnimation(.spring()) {
+                                isSignUp = false
+                                showingEmailForm.toggle()
+                            }
                         }) {
                             HStack(spacing: 12) {
                                 Image(systemName: "envelope.fill")
                                     .foregroundColor(.white)
                                     .frame(width: 24, height: 24)
-                                
-                                Text("Sign In with Email")
+                                Text(showingEmailForm ? "Hide Email Sign In" : "Sign In with Email")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(.white)
                             }
@@ -121,32 +115,33 @@ struct LoginView: View {
                         .cornerRadius(28)
                         .disabled(authManager.authState.isLoading)
                         
-                        // Create Account
-                        Button(action: {
-                            isSignUp = true
-                            showingEmailAuth = true
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.badge.plus.fill")
-                                    .foregroundColor(.green)
-                                    .frame(width: 24, height: 24)
-                                
-                                Text("Create Account")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.green)
-                            }
+                        if showingEmailForm {
+                            EmailAuthView(
+                                isSignUp: $isSignUp,
+                                email: $email,
+                                password: $password,
+                                name: $name,
+                                onSubmit: { email, password, name in
+                                    Task {
+                                        await handleEmailAuth(email: email, password: password, name: name)
+                                    }
+                                },
+                                onCancel: {
+                                    withAnimation(.spring()) {
+                                        showingEmailForm = false
+                                    }
+                                    clearEmailFields()
+                                },
+                                onToggleMode: {
+                                    withAnimation(.spring()) {
+                                        isSignUp.toggle()
+                                    }
+                                }
+                            )
                         }
-                        .frame(height: 56)
-                        .frame(maxWidth: .infinity)
-                        .background(Color(.systemBackground))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 28)
-                                .stroke(Color.green, lineWidth: 2)
-                        }
-                        .cornerRadius(28)
-                        .disabled(authManager.authState.isLoading)
                     }
                     .padding(.horizontal, 24)
+                    .animation(.easeInOut(duration: 0.25), value: showingEmailForm)
                     
                     // Loading indicator
                     if authManager.authState.isLoading {
@@ -208,24 +203,6 @@ struct LoginView: View {
                 showingError = true
             }
         }
-        .sheet(isPresented: $showingEmailAuth) {
-            EmailAuthView(
-                isSignUp: isSignUp,
-                email: $email,
-                password: $password,
-                name: $name,
-                onSubmit: { email, password, name in
-                    Task {
-                        await handleEmailAuth(email: email, password: password, name: name)
-                    }
-                },
-                onCancel: {
-                    showingEmailAuth = false
-                    clearEmailFields()
-                }
-            )
-            .environmentObject(authManager)
-        }
     }
     
     // MARK: - Sign-In Handlers
@@ -259,7 +236,7 @@ struct LoginView: View {
             } else {
                 try await authManager.signInWithEmail(email, password: password)
             }
-            showingEmailAuth = false
+            showingEmailForm = false
             clearEmailFields()
         } catch {
             // Error is already handled by AuthManager
