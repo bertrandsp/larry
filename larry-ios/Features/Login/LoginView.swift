@@ -36,16 +36,13 @@ struct LoginView: View {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
                     Spacer()
-                        .frame(height: geometry.size.height * 0.08)
+                        .frame(height: geometry.size.height * 0.12)
 
                     header
 
                     Spacer()
-                        .frame(height: geometry.size.height * 0.04)
 
                     contentSection
-
-                    Spacer()
 
                     if mode == .landing {
                         debugControls
