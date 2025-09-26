@@ -34,25 +34,28 @@ struct LoginView: View {
             background
 
             GeometryReader { geometry in
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 32) {
-                        Spacer().frame(height: geometry.size.height * 0.1)
+                VStack(spacing: 0) {
+                    Spacer()
+                        .frame(height: geometry.size.height * 0.08)
 
-                        header
+                    header
 
-                        Spacer().frame(height: geometry.size.height * 0.06)
+                    Spacer()
+                        .frame(height: geometry.size.height * 0.04)
 
-                        contentSection
+                    contentSection
 
-                        if mode == .landing {
-                            debugControls
-                        }
+                    Spacer()
 
-                        legalCopy
+                    if mode == .landing {
+                        debugControls
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
+
+                    legalCopy
+                        .padding(.bottom, 40)
                 }
+                .padding(.horizontal, 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .ignoresSafeArea()
@@ -80,18 +83,18 @@ struct LoginView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 12) {
             icon
                 .transition(.opacity)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 Text("Welcome to Larry")
-                    .font(.largeTitle)
+                    .font(.title)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
 
                 Text("Your AI-powered vocabulary coach")
-                    .font(.headline)
+                    .font(.subheadline)
                     .foregroundColor(Color.white.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
@@ -105,23 +108,23 @@ struct LoginView: View {
             case .landing:
                 Circle()
                     .fill(Color.blue)
-                    .frame(width: 88, height: 88)
+                    .frame(width: 64, height: 64)
                     .overlay {
                         Text("L")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
             case .signInOptions:
                 Image(systemName: "sparkle")
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.white)
             case .emailSignIn:
                 Image(systemName: "mail.fill")
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.white)
             case .emailSignUp:
                 Image(systemName: "sparkles")
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.white)
             }
         }
@@ -163,14 +166,14 @@ struct LoginView: View {
     }
 
     private var landingButtons: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Button {
                 animate(to: .emailSignUp)
             } label: {
                 Text("Create account")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .frame(height: 48)
                     .background(Color.purple)
                     .foregroundColor(.white)
                     .clipShape(Capsule())
@@ -180,23 +183,23 @@ struct LoginView: View {
                 animate(to: .signInOptions)
             } label: {
                 Text("Sign in")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(height: 44)
                     .foregroundColor(.white)
             }
         }
     }
 
     private var signInOptions: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.fullName, .email]
             } onCompletion: { result in
                 Task { await handleAppleSignInResult(result) }
             }
             .signInWithAppleButtonStyle(.white)
-            .frame(height: 56)
+            .frame(height: 48)
             .clipShape(Capsule())
 
             providerButton(
@@ -220,9 +223,9 @@ struct LoginView: View {
             Button("Back") {
                 animate(to: .landing, resetFields: true)
             }
-            .font(.system(size: 16, weight: .semibold))
+            .font(.system(size: 15, weight: .semibold))
             .foregroundColor(.white)
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
     }
 
@@ -254,7 +257,7 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, 20)
-            .frame(height: 56)
+            .frame(height: 48)
             .background(background)
             .clipShape(Capsule())
         }
@@ -267,19 +270,19 @@ struct LoginView: View {
                             showConfirmField: Bool,
                             primaryAction: @escaping () -> Void,
                             secondaryAction: @escaping () -> Void) -> some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 8) {
+        VStack(spacing: 16) {
+            VStack(spacing: 6) {
                 Text(title)
-                    .font(.title2)
+                    .font(.title3)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                 Text(subtitle)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundColor(Color.white.opacity(0.7))
                     .multilineTextAlignment(.center)
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 inputField(icon: "envelope.fill", placeholder: "john.doe@example.com", text: $email, isSecure: false, contentType: .emailAddress)
 
                 inputField(icon: "lock.fill", placeholder: "SecurePassword123!", text: $password, isSecure: true, contentType: .password)
@@ -289,12 +292,12 @@ struct LoginView: View {
                 }
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Button(action: primaryAction) {
                     Text(primaryTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(height: 44)
                         .foregroundColor(.white)
                         .background(Color.blue)
                         .clipShape(Capsule())
@@ -303,9 +306,9 @@ struct LoginView: View {
 
                 Button(action: secondaryAction) {
                     Text(secondaryTitle)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(height: 44)
                         .foregroundColor(.white)
                         .overlay {
                             Capsule()
@@ -317,15 +320,15 @@ struct LoginView: View {
                 Button("Back") {
                     animate(to: .landing, resetFields: true)
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white.opacity(0.8))
-                .padding(.top, 4)
+                .padding(.top, 2)
             }
         }
-        .padding(28)
+        .padding(20)
         .frame(maxWidth: .infinity)
         .background(Color.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func inputField(icon: String,
@@ -350,7 +353,7 @@ struct LoginView: View {
             .textContentType(contentType)
         }
         .padding(.horizontal, 16)
-        .frame(height: 52)
+        .frame(height: 44)
         .background(Color.white.opacity(0.12))
         .clipShape(Capsule())
     }
