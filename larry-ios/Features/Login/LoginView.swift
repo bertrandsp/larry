@@ -9,16 +9,17 @@ import SwiftUI
 import AuthenticationServices
 
 private enum AuthMode {
-    case providers
+    case landing
+    case signInOptions
     case emailSignIn
     case emailSignUp
 }
 
-/// Login screen recreated to match latest product mock
+/// Login screen staged like reference mock with animated expansions
 struct LoginView: View {
     @EnvironmentObject private var authManager: AuthManager
 
-    @State private var mode: AuthMode = .providers
+    @State private var mode: AuthMode = .landing
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -26,31 +27,35 @@ struct LoginView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
 
-    // MARK: - Body
+    private let transitionStyle = AnyTransition.move(edge: .bottom).combined(with: .opacity)
 
     var body: some View {
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: 32) {
-                    Spacer().frame(height: geometry.size.height * 0.08)
+        ZStack {
+            background
 
-                    header
+            GeometryReader { geometry in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 32) {
+                        Spacer().frame(height: geometry.size.height * 0.1)
 
-                    Spacer().frame(height: geometry.size.height * 0.06)
+                        header
 
-                    content
+                        Spacer().frame(height: geometry.size.height * 0.06)
 
-                    if mode == .providers {
-                        debugControls
+                        contentSection
+
+                        if mode == .landing {
+                            debugControls
+                        }
+
+                        legalCopy
                     }
-
-                    footerLegal
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 40)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 40)
             }
         }
-        .background(Color(.systemBackground))
+        .ignoresSafeArea()
         .alert("Sign In Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -66,28 +71,38 @@ struct LoginView: View {
 
     // MARK: - Sections
 
+    private var background: some View {
+        LinearGradient(
+            colors: [Color(.black).opacity(0.82), Color(.black).opacity(0.9)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     private var header: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             icon
+                .transition(.opacity)
 
             VStack(spacing: 6) {
                 Text("Welcome to Larry")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
 
                 Text("Your AI-powered vocabulary coach")
                     .font(.headline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.white.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var icon: some View {
         Group {
             switch mode {
-            case .providers:
+            case .landing:
                 Circle()
                     .fill(Color.blue)
                     .frame(width: 88, height: 88)
@@ -96,58 +111,129 @@ struct LoginView: View {
                             .font(.system(size: 44, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
-            case .emailSignIn:
+            case .signInOptions:
                 Image(systemName: "sparkle")
                     .font(.system(size: 44, weight: .bold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
+            case .emailSignIn:
+                Image(systemName: "mail.fill")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundColor(.white)
             case .emailSignUp:
                 Image(systemName: "sparkles")
                     .font(.system(size: 44, weight: .bold))
-                    .foregroundColor(.green)
+                    .foregroundColor(.white)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: mode)
     }
 
     @ViewBuilder
-    private var content: some View {
+    private var contentSection: some View {
         switch mode {
-        case .providers:
-            providerOptions
-
+        case .landing:
+            landingButtons
+                .transition(transitionStyle)
+        case .signInOptions:
+            signInOptions
+                .transition(transitionStyle)
         case .emailSignIn:
-            emailForm(title: "Sign In",
-                      primaryActionTitle: "Sign In",
-                      secondaryActionTitle: "Create Account",
-                      showConfirmField: false,
-                      primaryAction: handleEmailSignIn,
-                      secondaryAction: { withAnimation(.spring()) { mode = .emailSignUp } })
-
+            emailForm(
+                title: "Sign In",
+                subtitle: "Enter your details to continue.",
+                primaryTitle: "Sign In",
+                secondaryTitle: "Create Account",
+                showConfirmField: false,
+                primaryAction: handleEmailSignIn,
+                secondaryAction: { animate(to: .emailSignUp) }
+            )
+            .transition(transitionStyle)
         case .emailSignUp:
-            emailForm(title: "Create Account",
-                      primaryActionTitle: "Create Account",
-                      secondaryActionTitle: "Sign In",
-                      showConfirmField: true,
-                      primaryAction: handleEmailSignUp,
-                      secondaryAction: { withAnimation(.spring()) { mode = .emailSignIn } })
+            emailForm(
+                title: "Create Account",
+                subtitle: "Create your Larry account in seconds.",
+                primaryTitle: "Create Account",
+                secondaryTitle: "Sign In",
+                showConfirmField: true,
+                primaryAction: handleEmailSignUp,
+                secondaryAction: { animate(to: .emailSignIn) }
+            )
+            .transition(transitionStyle)
         }
     }
 
-    private var providerOptions: some View {
+    private var landingButtons: some View {
+        VStack(spacing: 16) {
+            Button {
+                animate(to: .emailSignUp)
+            } label: {
+                Text("Create account")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(Color.purple)
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+            }
+
+            Button {
+                animate(to: .signInOptions)
+            } label: {
+                Text("Sign in")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .foregroundColor(.white)
+            }
+        }
+    }
+
+    private var signInOptions: some View {
         VStack(spacing: 16) {
             SignInWithAppleButton(.signIn) { request in
                 request.requestedScopes = [.fullName, .email]
             } onCompletion: { result in
                 Task { await handleAppleSignInResult(result) }
             }
-            .signInWithAppleButtonStyle(.black)
+            .signInWithAppleButtonStyle(.white)
             .frame(height: 56)
-            .cornerRadius(28)
+            .clipShape(Capsule())
 
-            Button {
+            providerButton(
+                title: "Sign in with Google",
+                image: "google",
+                background: Color.white,
+                foreground: Color.black
+            ) {
                 Task { await handleGoogleSignIn() }
-            } label: {
-                HStack(spacing: 12) {
+            }
+
+            providerButton(
+                title: "Sign in with Email",
+                image: "envelope.fill",
+                background: Color.purple,
+                foreground: .white
+            ) {
+                animate(to: .emailSignIn)
+            }
+
+            Button("Back") {
+                animate(to: .landing, resetFields: true)
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.top, 8)
+        }
+    }
+
+    private func providerButton(title: String,
+                                 image: String,
+                                 background: Color,
+                                 foreground: Color,
+                                 action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                if image == "google" {
                     Circle()
                         .fill(Color.white)
                         .frame(width: 24, height: 24)
@@ -156,53 +242,41 @@ struct LoginView: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.blue)
                         }
-                    Text("Continue with Google")
-                        .font(.system(size: 16, weight: .semibold))
+                } else {
+                    Image(systemName: image)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(foreground)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color(.systemBackground))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color(.systemGray4), lineWidth: 1)
-                }
-            }
-            .cornerRadius(28)
-            .disabled(authManager.authState.isLoading)
 
-            Button {
-                withAnimation(.spring()) {
-                    mode = .emailSignIn
-                }
-            } label: {
-                Text("Sign In with Email")
+                Text(title)
                     .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .foregroundColor(foreground)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
-            .buttonStyle(.plain)
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(28)
-            .disabled(authManager.authState.isLoading)
+            .padding(.horizontal, 20)
+            .frame(height: 56)
+            .background(background)
+            .clipShape(Capsule())
         }
     }
 
     private func emailForm(title: String,
-                           primaryActionTitle: String,
-                           secondaryActionTitle: String,
-                           showConfirmField: Bool,
-                           primaryAction: @escaping () -> Void,
-                           secondaryAction: @escaping () -> Void) -> some View {
+                            subtitle: String,
+                            primaryTitle: String,
+                            secondaryTitle: String,
+                            showConfirmField: Bool,
+                            primaryAction: @escaping () -> Void,
+                            secondaryAction: @escaping () -> Void) -> some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
                 Text(title)
                     .font(.title2)
                     .fontWeight(.semibold)
-
-                Text(mode == .emailSignIn ? "Enter your details to continue." : "Create your Larry account in seconds.")
+                    .foregroundColor(.white)
+                Text(subtitle)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
             }
 
             VStack(spacing: 12) {
@@ -217,65 +291,51 @@ struct LoginView: View {
 
             VStack(spacing: 12) {
                 Button(action: primaryAction) {
-                    Text(primaryActionTitle)
+                    Text(primaryTitle)
                         .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .foregroundColor(.white)
                         .background(Color.blue)
-                        .cornerRadius(26)
+                        .clipShape(Capsule())
                 }
-                .disabled(!isPrimaryActionEnabled(showConfirmField: showConfirmField) || authManager.authState.isLoading)
+                .disabled(!isPrimaryEnabled(showConfirmField: showConfirmField) || authManager.authState.isLoading)
 
                 Button(action: secondaryAction) {
-                    Text(secondaryActionTitle)
+                    Text(secondaryTitle)
                         .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .foregroundColor(.green)
+                        .foregroundColor(.white)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 26)
-                                .stroke(Color.green, lineWidth: 2)
+                            Capsule()
+                                .stroke(Color.white.opacity(0.6), lineWidth: 1.5)
                         }
                 }
                 .disabled(authManager.authState.isLoading)
 
-                Button("Forgot Password?") {
-                    // TODO: Hook up password reset flow
+                Button("Back") {
+                    animate(to: .landing, resetFields: true)
                 }
-                .font(.footnote)
-                .foregroundColor(.secondary)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white.opacity(0.8))
+                .padding(.top, 4)
             }
         }
+        .padding(28)
         .frame(maxWidth: .infinity)
-        .padding(24)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(alignment: .topTrailing) {
-            Button {
-                withAnimation(.spring()) {
-                    mode = .providers
-                    clearEmailFields()
-                }
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
-                    .padding(12)
-            }
-            .accessibilityLabel("Close email form")
-        }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 
     private func inputField(icon: String,
-                            placeholder: String,
-                            text: Binding<String>,
-                            isSecure: Bool,
-                            contentType: UITextContentType) -> some View {
-        HStack(spacing: 12) {
+                             placeholder: String,
+                             text: Binding<String>,
+                             isSecure: Bool,
+                             contentType: UITextContentType) -> some View {
+        HStack(spacing: 14) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.white.opacity(0.7))
 
             Group {
                 if isSecure {
@@ -286,51 +346,70 @@ struct LoginView: View {
                         .autocorrectionDisabled()
                 }
             }
+            .foregroundColor(.white)
             .textContentType(contentType)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 48)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .background(Color.white.opacity(0.12))
+        .clipShape(Capsule())
     }
 
     private var debugControls: some View {
+        #if DEBUG
         Button("Clear Auth Data (Debug)") {
             authManager.clearAllAuthData()
             authManager.forceRefreshAuthState()
         }
         .font(.caption)
         .foregroundColor(.red)
+        #else
+        EmptyView()
+        #endif
     }
 
-    private var footerLegal: some View {
-        VStack(spacing: 4) {
-            Text("By continuing, you agree to our")
+    private var legalCopy: some View {
+        VStack(spacing: 6) {
+            Text("By tapping 'Sign in' / 'Create account', you agree to our")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.white.opacity(0.65))
             HStack(spacing: 12) {
                 Button("Terms of Service") {}
                     .font(.caption)
                 Button("Privacy Policy") {}
                     .font(.caption)
+                Button("Cookies Policy") {}
+                    .font(.caption)
             }
+            .foregroundColor(.white)
+            .underline()
         }
+        .padding(.top, 8)
     }
 
     // MARK: - Helpers
 
-    private func isPrimaryActionEnabled(showConfirmField: Bool) -> Bool {
-        guard !email.isEmpty, email.contains("@"), !password.isEmpty else { return false }
-        if showConfirmField {
-            return password == confirmPassword && !confirmPassword.isEmpty
+    private func animate(to newMode: AuthMode, resetFields: Bool = false) {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85, blendDuration: 0.25)) {
+            mode = newMode
+            if resetFields {
+                clearFields()
+            }
         }
-        return true
     }
 
-    private func clearEmailFields() {
+    private func clearFields() {
         email = ""
         password = ""
         confirmPassword = ""
+    }
+
+    private func isPrimaryEnabled(showConfirmField: Bool) -> Bool {
+        guard !email.isEmpty, email.contains("@"), !password.isEmpty else { return false }
+        if showConfirmField {
+            return !confirmPassword.isEmpty && confirmPassword == password
+        }
+        return true
     }
 
     // MARK: - Actions
@@ -340,6 +419,7 @@ struct LoginView: View {
         case .success(let authorization):
             do {
                 try await authManager.handleAppleSignInResult(authorization)
+                animate(to: .landing, resetFields: true)
             } catch {
                 print("Apple Sign-In error: \(error)")
             }
@@ -351,6 +431,7 @@ struct LoginView: View {
     private func handleGoogleSignIn() async {
         do {
             try await authManager.signInWithGoogle()
+            animate(to: .landing, resetFields: true)
         } catch {
             print("Google Sign-In error: \(error)")
         }
@@ -360,10 +441,9 @@ struct LoginView: View {
         Task {
             do {
                 try await authManager.signInWithEmail(email, password: password)
-                clearEmailFields()
-                mode = .providers
+                animate(to: .landing, resetFields: true)
             } catch {
-                print("Email sign in error: \(error)")
+                print("Email Sign-In error: \(error)")
             }
         }
     }
@@ -377,10 +457,9 @@ struct LoginView: View {
                     return
                 }
                 try await authManager.signUpWithEmail(email, password: password, name: nil)
-                clearEmailFields()
-                mode = .providers
+                animate(to: .landing, resetFields: true)
             } catch {
-                print("Email sign up error: \(error)")
+                print("Email Sign-Up error: \(error)")
             }
         }
     }
