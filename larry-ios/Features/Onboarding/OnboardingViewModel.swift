@@ -11,23 +11,126 @@ import Combine
 /// ViewModel managing the onboarding flow and user setup
 @MainActor
 class OnboardingViewModel: ObservableObject {
+    private let onboardingAPI: OnboardingSubmitting
     
     // MARK: - Onboarding Steps
     
+    enum OnboardingSourceOption: String, CaseIterable, Identifiable {
+        case appStore
+        case friend
+        case social
+        case search
+        case other
+        
+        var id: String { rawValue }
+        
+        var title: String {
+            switch self {
+            case .appStore: return "App Store"
+            case .friend: return "Friend Recommendation"
+            case .social: return "Social Media"
+            case .search: return "Online Search"
+            case .other: return "Other"
+            }
+        }
+        
+        var iconName: String {
+            switch self {
+            case .appStore: return "app.badge"
+            case .friend: return "person.2.fill"
+            case .social: return "globe.americas.fill"
+            case .search: return "magnifyingglass"
+            case .other: return "ellipsis"
+            }
+        }
+    }
+
+    enum LearningLevelOption: String, CaseIterable, Identifiable {
+        case scratch
+        case beginner
+        case intermediate
+        case advanced
+        case professional
+        
+        var id: String { rawValue }
+        
+        var title: String {
+            switch self {
+            case .scratch: return "Starting from Scratch"
+            case .beginner: return "Beginner"
+            case .intermediate: return "Intermediate"
+            case .advanced: return "Advanced"
+            case .professional: return "Professional Use"
+            }
+        }
+        
+        var subtitle: String {
+            switch self {
+            case .scratch: return "New to vocabulary, eager to begin."
+            case .beginner: return "Know some words, but struggle with fluency."
+            case .intermediate: return "Comfortable, but want to expand vocabulary."
+            case .advanced: return "Strong vocabulary, aiming for nuance."
+            case .professional: return "Need specialized vocabulary for work/academics."
+            }
+        }
+        
+        var iconName: String {
+            switch self {
+            case .scratch: return "sparkles"
+            case .beginner: return "book"
+            case .intermediate: return "graduationcap"
+            case .advanced: return "lightbulb"
+            case .professional: return "briefcase.fill"
+            }
+        }
+    }
+
+
     enum OnboardingStep: Int, CaseIterable {
         case welcome = 0
-        case identity = 1
-        case interests = 2
-        case preferences = 3
-        case complete = 4
+        case dailyGoal
+        case weekPreview
+        case source
+        case skillLevel
+        case widgetPrompt
+        case motivation
+        case topics
+        case complete
         
         var title: String {
             switch self {
             case .welcome: return "Welcome"
-            case .identity: return "About You"
-            case .interests: return "Interests"
-            case .preferences: return "Preferences"
+            case .dailyGoal: return "Daily Goal"
+            case .weekPreview: return "Your First Week"
+            case .source: return "How You Found Us"
+            case .skillLevel: return "Skill Level"
+            case .widgetPrompt: return "Daily Word Widget"
+            case .motivation: return "Motivation"
+            case .topics: return "Topics"
             case .complete: return "Complete"
+            }
+        }
+        
+        var subtitle: String? {
+            switch self {
+            case .welcome:
+                return nil
+            case .dailyGoal:
+                return "Set your daily learning target"
+            case .weekPreview:
+                return nil
+            case .source:
+                return "How did you hear about Larry?"
+            case .skillLevel:
+                return "Tell us your current familiarity"
+            case .widgetPrompt:
+                return "Add Larry to your home screen"
+            case .motivation:
+                return nil
+            case .topics:
+                return "Pick at least 3"
+            case .complete:
+                return nil
             }
         }
     }
@@ -38,6 +141,7 @@ class OnboardingViewModel: ObservableObject {
     @Published var availableTopics: [Topic] = []
     @Published var selectedTopics: Set<String> = []
     @Published var customTopicText: String = ""
+    @Published private(set) var customTopicNames: [String: String] = [:]
     
     // First daily word state
     @Published var isPreparingFirstWord: Bool = false
@@ -59,7 +163,10 @@ class OnboardingViewModel: ObservableObject {
     @Published var preferredDifficulty: Term.DifficultyLevel = .intermediate
     @Published var enableNotifications = true
     @Published var notificationTime = Date()
-    @Published var dailyWordGoal: Double = 2
+    @Published var dailyWordGoal: Int = 10
+    @Published var onboardingSource: OnboardingSourceOption? = nil
+    @Published var learningLevel: LearningLevelOption? = nil
+    @Published var widgetOptIn: Bool? = nil
     @Published var isLoading = false
     @Published var showingError = false
     @Published var errorMessage = ""
@@ -67,7 +174,8 @@ class OnboardingViewModel: ObservableObject {
     // MARK: - Computed Properties
     
     var progress: Double {
-        return Double(currentStep.rawValue) / Double(OnboardingStep.allCases.count - 1)
+        let totalSteps = Double(OnboardingStep.allCases.count)
+        return Double(currentStep.rawValue) / max(totalSteps - 1, 1)
     }
     
     var canGoBack: Bool {
@@ -78,12 +186,20 @@ class OnboardingViewModel: ObservableObject {
         switch currentStep {
         case .welcome:
             return true
-        case .identity:
-            return !name.isEmpty && !goal.isEmpty
-        case .interests:
-            return selectedTopics.count >= 3
-        case .preferences:
+        case .dailyGoal:
+            return dailyWordGoal >= 1
+        case .weekPreview:
             return true
+        case .source:
+            return onboardingSource != nil
+        case .skillLevel:
+            return learningLevel != nil
+        case .widgetPrompt:
+            return widgetOptIn != nil
+        case .motivation:
+            return true
+        case .topics:
+            return selectedTopics.count >= 3
         case .complete:
             return false
         }
@@ -91,10 +207,14 @@ class OnboardingViewModel: ObservableObject {
     
     var nextButtonTitle: String {
         switch currentStep {
-        case .welcome, .identity, .interests, .preferences:
-            return "Continue"
         case .complete:
             return "Get Started"
+        case .widgetPrompt:
+            return widgetOptIn == true ? "Add Widget" : "Continue"
+        case .dailyGoal:
+            return "Commit to Goal"
+        default:
+            return "Continue"
         }
     }
     
@@ -104,58 +224,37 @@ class OnboardingViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init() {
+    init(onboardingAPI: OnboardingSubmitting = RemoteOnboardingAPI()) {
+        self.onboardingAPI = onboardingAPI
         loadAvailableTopics()
         
         #if DEBUG
         print("📚 OnboardingViewModel initialized")
         #endif
+        currentStep = .welcome
+        Task { await recordStep(.welcome) }
     }
     
     // MARK: - Navigation Methods
     
     func goNext() async {
-        switch currentStep {
-        case .welcome:
-            currentStep = .identity
-            
-        case .identity:
-            if canGoNext {
-                await saveCurrentStepData()
-                currentStep = .interests
+        guard currentStep != .complete else { return }
+        await saveCurrentStepData()
+        if let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) {
+            currentStep = nextStep
+            await recordStep(nextStep)
+            if nextStep == .complete {
+                await completeOnboarding()
             }
-            
-        case .interests:
-            if canGoNext {
-                await saveCurrentStepData()
-                currentStep = .preferences
-            }
-            
-        case .preferences:
-            await saveCurrentStepData()
-            currentStep = .complete
-            await completeOnboarding()
-            
-        case .complete:
-            // This shouldn't be reachable
-            break
         }
     }
     
     func goBack() {
         guard canGoBack else { return }
         
-        switch currentStep {
-        case .identity:
-            currentStep = .welcome
-        case .interests:
-            currentStep = .identity
-        case .preferences:
-            currentStep = .interests
-        case .complete:
-            currentStep = .preferences
-        case .welcome:
-            break
+        if let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) {
+            currentStep = previousStep
+            Task { await recordStep(previousStep) }
         }
     }
     
@@ -168,80 +267,52 @@ class OnboardingViewModel: ObservableObject {
             #endif
             return
         }
-        
         do {
-            var profileData: [String: Any] = [:]
-            
-            switch currentStep {
-            case .identity:
-                profileData = [
-                    "name": name,
-                    "username": username,
-                    "professionCurrent": professionCurrent,
-                    "professionTarget": professionTarget,
-                    "goal": goal,
-                    "hobbies": hobbies,
-                    "languages": languages,
-                    "travelLocation": travelLocation,
-                    "travelDate": travelDate?.ISO8601Format() as Any
-                ]
-                
-            case .interests:
-                // Topics are saved separately in completeOnboarding
-                break
-                
-            case .preferences:
-                profileData = [
-                    "preferredDifficulty": preferredDifficulty.rawValue,
-                    "enableNotifications": enableNotifications,
-                    "notificationTime": enableNotifications ? notificationTime : NSNull(),
-                    "dailyWordGoal": Int(dailyWordGoal)
-                ]
-                
-            default:
-                break
-            }
-            
-            // Only save if there's data to save
-            if !profileData.isEmpty {
-                let requestBody = ProfileUpdateRequest(
-                    userId: user.id,
-                    name: profileData["name"] as? String,
-                    username: profileData["username"] as? String,
-                    professionCurrent: profileData["professionCurrent"] as? String,
-                    professionTarget: profileData["professionTarget"] as? String,
-                    goal: profileData["goal"] as? String,
-                    hobbies: profileData["hobbies"] as? [String],
-                    languages: profileData["languages"] as? [String],
-                    travelLocation: profileData["travelLocation"] as? String,
-                    travelDate: profileData["travelDate"] as? String,
-                    preferredDifficulty: profileData["preferredDifficulty"] as? String,
-                    enableNotifications: profileData["enableNotifications"] as? Bool,
-                    notificationTime: profileData["notificationTime"] as? String,
-                    dailyWordGoal: profileData["dailyWordGoal"] as? Int
-                )
-                
-                let request = try APIRequest(
-                    method: .PUT,
-                    path: "/user/profile",
-                    body: requestBody
-                )
-                
-                let _: ProfileUpdateResponse = try await APIService.shared.send(
-                    request,
-                    responseType: ProfileUpdateResponse.self
-                )
-                
-                #if DEBUG
-                print("✅ Saved \(currentStep.title) step data for user: \(user.id)")
-                #endif
-            }
-            
+            try await submit(step: currentStep, userId: user.id)
         } catch {
             #if DEBUG
-            print("❌ Failed to save \(currentStep.title) step data: \(error)")
+            print("❌ Failed to save data for step \(currentStep.title): \(error)")
             #endif
-            // Don't block navigation on save failure
+        }
+    }
+
+    private func submit(step: OnboardingStep, userId: String) async throws {
+        switch step {
+        case .welcome, .weekPreview, .motivation:
+            break // informational screens
+        case .dailyGoal:
+            try await onboardingAPI.submitDailyGoal(userId: userId, goal: dailyWordGoal)
+        case .source:
+            if let source = onboardingSource {
+                try await onboardingAPI.submitSource(userId: userId, source: source.rawValue)
+            }
+        case .skillLevel:
+            if let level = learningLevel {
+                try await onboardingAPI.submitSkillLevel(userId: userId, level: level.rawValue)
+            }
+        case .widgetPrompt:
+            if let widget = widgetOptIn {
+                try await onboardingAPI.submitWidgetPreference(userId: userId, enabled: widget)
+            }
+        case .topics:
+            if !selectedTopics.isEmpty {
+                let (stock, custom) = partitionSelectedTopics()
+                try await onboardingAPI.submitTopics(userId: userId, topicIds: stock, customTopics: custom)
+            }
+        case .complete:
+            break
+        }
+    }
+
+    private func recordStep(_ step: OnboardingStep) async {
+        guard let user = AuthManager.shared.currentUser,
+              let key = onboardingStepKey(for: step) else { return }
+        do {
+            try await onboardingAPI.recordStep(userId: user.id, step: key)
+        } catch {
+            #if DEBUG
+            print("⚠️ Failed to record onboarding step \(step.title): \(error)")
+            #endif
         }
     }
     
@@ -281,8 +352,9 @@ class OnboardingViewModel: ObservableObject {
             userTopicWeight: nil
         )
         
-        // Add to available topics
+        // Add to available topics and track custom label
         availableTopics.append(customTopic)
+        customTopicNames[customTopic.id] = trimmedText
         
         // Clear the input
         customTopicText = ""
@@ -291,17 +363,56 @@ class OnboardingViewModel: ObservableObject {
         print("✅ Added custom topic: \(trimmedText)")
         #endif
     }
+
+    private func partitionSelectedTopics() -> ([String], [String]) {
+        var stock: [String] = []
+        var custom: [String] = []
+        for topicId in selectedTopics {
+            if let name = customTopicNames[topicId] {
+                custom.append(name)
+            } else {
+                stock.append(topicId)
+            }
+        }
+        return (stock, custom)
+    }
+
+    private func onboardingStepKey(for step: OnboardingStep) -> OnboardingStepKey? {
+        switch step {
+        case .welcome:
+            return .welcome
+        case .dailyGoal:
+            return .dailyGoal
+        case .weekPreview:
+            return .weekPreview
+        case .source:
+            return .source
+        case .skillLevel:
+            return .skillLevel
+        case .widgetPrompt:
+            return .widget
+        case .motivation:
+            return .motivation
+        case .topics:
+            return .topics
+        case .complete:
+            return nil
+        }
+    }
     
     // MARK: - Data Loading
     
     private func loadAvailableTopics() {
-        // For now, use mock data
-        // In production, this would load from the API
-        availableTopics = Topic.previewDataList
-        
-        #if DEBUG
-        print("📖 Loaded \(availableTopics.count) available topics")
-        #endif
+        Task {
+            do {
+                availableTopics = try await onboardingAPI.fetchTopics()
+            } catch {
+                availableTopics = Topic.previewDataList
+                #if DEBUG
+                print("⚠️ Failed to load topics from API, falling back to preview: \(error)")
+                #endif
+            }
+        }
     }
     
     // MARK: - Onboarding Completion

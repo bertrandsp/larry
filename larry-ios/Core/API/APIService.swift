@@ -219,6 +219,27 @@ class APIService: ObservableObject {
         
         return try await send(request, responseType: EnhancedDailyWord.self)
     }
+
+    // MARK: - Onboarding
+
+    func postOnboardingStep<T: Encodable>(_ body: T, path: String) async throws {
+        let request = try APIRequest(
+            method: .POST,
+            path: path,
+            body: body
+        )
+        try await send(request)
+    }
+
+    func getTopics() async throws -> [Topic] {
+        let request = APIRequest(method: .GET, path: "/topics")
+        let response: TopicsResponse = try await send(request, responseType: TopicsResponse.self)
+        return response.topics
+    }
+}
+
+private struct TopicsResponse: Codable {
+    let topics: [Topic]
 }
 
 // MARK: - API Request Structure

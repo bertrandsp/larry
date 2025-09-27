@@ -7,458 +7,617 @@
 
 import SwiftUI
 
-/// Onboarding flow for new users to set up their interests and preferences
 struct OnboardingView: View {
     @EnvironmentObject private var authManager: AuthManager
     @StateObject private var viewModel = OnboardingViewModel()
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Progress indicator
-                ProgressView(value: viewModel.progress)
-                    .progressViewStyle(LinearProgressViewStyle())
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+        NavigationStack {
+            ZStack {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
                 
-                // Content based on current step
-                Group {
-                    switch viewModel.currentStep {
-                    case .welcome:
-                        WelcomeStepView()
-                    case .identity:
-                        IdentityAndGoalsStepView()
-                    case .interests:
-                        InterestsStepView()
-                    case .preferences:
-                        PreferencesStepView()
-                    case .complete:
-                        CompleteStepView()
-                    }
-                }
-                .environmentObject(viewModel)
-                
-                Spacer()
-                
-                // Navigation buttons
-                HStack(spacing: 16) {
-                    if viewModel.canGoBack {
-                        Button("Back") {
-                            viewModel.goBack()
-                        }
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity)
-                    }
+                VStack(spacing: 0) {
+                    header
+                        .padding(.horizontal, 24)
+                        .padding(.top, 32)
                     
-                    Button(viewModel.nextButtonTitle) {
-                        Task {
-                            await viewModel.goNext()
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 24) {
+                            stepContent
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 24)
+                        .padding(.bottom, 12)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                    .disabled(!viewModel.canGoNext || viewModel.isLoading)
+                    .scrollDisabled(viewModel.currentStep != .topics)
+                    
+                    footer
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 32)
             }
-            .navigationTitle("Setup")
-            .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden)
         }
         .alert("Error", isPresented: $viewModel.showingError) {
-            Button("OK") { }
+            Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.errorMessage)
         }
     }
+    
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProgressView(value: viewModel.progress)
+                .progressViewStyle(.linear)
+                .tint(.accentColor)
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(viewModel.currentStep.title)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.primary)
+                if let subtitle = viewModel.currentStep.subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    @ViewBuilder
+    private var stepContent: some View {
+        switch viewModel.currentStep {
+        case .welcome:
+            WelcomeCard()
+        case .dailyGoal:
+            DailyGoalCard(goal: $viewModel.dailyWordGoal)
+        case .weekPreview:
+            WeekPreviewCard()
+        case .source:
+            SourceSelectionView(selected: $viewModel.onboardingSource)
+        case .skillLevel:
+            SkillLevelView(selected: $viewModel.learningLevel)
+        case .widgetPrompt:
+            WidgetPromptView(selected: $viewModel.widgetOptIn)
+        case .motivation:
+            MotivationCard()
+        case .topics:
+            TopicsSelectionView(
+                topics: viewModel.availableTopics,
+                selectedTopics: $viewModel.selectedTopics,
+                customTopicText: $viewModel.customTopicText,
+                onAddCustomTopic: viewModel.addCustomTopic
+            )
+        case .complete:
+            CompleteStepView()
+        }
+    }
+    
+    private var footer: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                if viewModel.canGoBack {
+                    Button("Back") {
+                        viewModel.goBack()
+                    }
+                    .buttonStyle(SecondaryOnboardingButtonStyle())
+                }
+                
+                Button(viewModel.nextButtonTitle) {
+                    Task {
+                        await viewModel.goNext()
+                    }
+                }
+                .buttonStyle(PrimaryOnboardingButtonStyle())
+                .disabled(!viewModel.canGoNext || viewModel.isLoading)
+            }
+        }
+    }
 }
 
-// MARK: - Welcome Step
+// MARK: - Styles
 
-private struct WelcomeStepView: View {
+private struct PrimaryOnboardingButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(Color.accentColor.cornerRadius(16))
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+private struct SecondaryOnboardingButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundColor(.accentColor)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.accentColor, lineWidth: 2)
+            )
+            .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+private struct OnboardingCard<Content: View>: View {
+    let content: () -> Content
+    
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            content()
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(Color(uiColor: .systemGray6))
+        .cornerRadius(24)
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
+    }
+}
+
+// MARK: - Step Views
+
+private struct WelcomeCard: View {
+    var body: some View {
+        OnboardingCard {
+        VStack(spacing: 12) {
+            Image("onboarding-welcome")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 220)
+                .accessibilityHidden(true)
             
-            // App icon
-            Circle()
-                .fill(Color.blue.gradient)
-                .frame(width: 120, height: 120)
-                .overlay {
-                    Text("L")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-            
-            VStack(spacing: 16) {
-                Text("Welcome to Larry!")
-                    .font(.largeTitle)
+            VStack(spacing: 8) {
+                Text("Hi there! I'm Larry.")
+                    .font(.title2)
                     .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
+                    .foregroundColor(.primary)
                 
-                Text("Let's personalize your vocabulary learning experience. We'll ask a few questions to tailor the perfect learning journey for you.")
+                Text("Let's get your vocabulary journey started!")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
             }
-            
-            Spacer()
         }
-        .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity)
+        }
     }
 }
 
-// MARK: - Identity and Goals Step
-
-private struct IdentityAndGoalsStepView: View {
-    @EnvironmentObject private var viewModel: OnboardingViewModel
+private struct DailyGoalCard: View {
+    @Binding var goal: Int
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        OnboardingCard {
+            VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Tell us about yourself")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Help us personalize your learning experience")
+                    Label("What's your daily learning goal?", systemImage: "target")
+                        .font(.headline)
+                    Text("Consistency is key to mastering new vocabulary.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 16)
                 
-                VStack(alignment: .leading, spacing: 20) {
-                    // Name (Required)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Name *")
-                            .font(.headline)
-                        TextField("Enter your name", text: $viewModel.name)
-                            .textFieldStyle(.roundedBorder)
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text("\(goal)")
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundColor(.accentColor)
+                    Text("words per day")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                }
+                
+                Slider(
+                    value: Binding(
+                        get: { Double(goal) },
+                        set: { goal = Int($0) }
+                    ),
+                    in: 1...10,
+                    step: 1
+                )
+                .tint(.accentColor)
+                
+                Text("Small steps every day lead to big results. Let's make learning a habit!")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+private struct WeekPreviewCard: View {
+    var body: some View {
+        OnboardingCard {
+            VStack(spacing: 16) {
+                Image("onboarding-week-preview")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                    .accessibilityHidden(true)
+                
+                Text("You're all set for a fantastic first week!")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                
+                Text("Great! In your first week, you'll master core terms, build a solid foundation, and unlock new confidence in speaking English. Larry is excited to guide you!")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+}
+
+private struct SourceSelectionView: View {
+    @Binding var selected: OnboardingViewModel.OnboardingSourceOption?
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            ForEach(OnboardingViewModel.OnboardingSourceOption.allCases) { option in
+                SelectableRow(
+                    title: option.title,
+                    subtitle: subtitle(for: option),
+                    systemIcon: option.iconName,
+                    isSelected: selected == option
+                ) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        selected = option
                     }
-                    
-                    // Username (Optional)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Username")
-                            .font(.headline)
-                        TextField("Choose a username (optional)", text: $viewModel.username)
-                            .textFieldStyle(.roundedBorder)
+                }
+            }
+        }
+    }
+    
+    private func subtitle(for option: OnboardingViewModel.OnboardingSourceOption) -> String {
+        switch option {
+        case .appStore: return "Found us on the App Store"
+        case .friend: return "Recommended by a friend"
+        case .social: return "Saw us on social media"
+        case .search: return "Discovered via online search"
+        case .other: return "Another source"
+        }
+    }
+}
+
+private struct SkillLevelView: View {
+    @Binding var selected: OnboardingViewModel.LearningLevelOption?
+    
+    private let columns = [GridItem(.adaptive(minimum: 160), spacing: 16)]
+    
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(OnboardingViewModel.LearningLevelOption.allCases) { option in
+                SelectableCard(
+                    title: option.title,
+                    subtitle: option.subtitle,
+                    systemIcon: option.iconName,
+                    isSelected: selected == option
+                ) {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                        selected = option
                     }
-                    
-                    // Current Profession
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Current Role")
-                            .font(.headline)
-                        TextField("e.g., Product Manager, Student", text: $viewModel.professionCurrent)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    
-                    // Target Profession
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Target Role")
-                            .font(.headline)
-                        TextField("e.g., Senior PM, Data Scientist", text: $viewModel.professionTarget)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    
-                    // Goal (Required)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Learning Goal *")
-                            .font(.headline)
-                        TextField("e.g., Get promoted, Learn new skills", text: $viewModel.goal)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    
-                    // Travel Plans
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Upcoming Travel")
-                            .font(.headline)
-                        TextField("Destination (optional)", text: $viewModel.travelLocation)
-                            .textFieldStyle(.roundedBorder)
-                        
-                        if !viewModel.travelLocation.isEmpty {
-                            DatePicker(
-                                "Travel Date",
-                                selection: Binding(
-                                    get: { viewModel.travelDate ?? Date() },
-                                    set: { viewModel.travelDate = $0 }
-                                ),
-                                displayedComponents: .date
-                            )
+                }
+            }
+        }
+    }
+}
+
+private struct WidgetPromptView: View {
+    @Binding var selected: Bool?
+    
+    var body: some View {
+        OnboardingCard {
+            VStack(spacing: 18) {
+                Image("onboarding-widget")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                    .accessibilityHidden(true)
+                
+                Text("Daily Vocabulary On Your Home Screen?")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                
+                Text("Get new words delivered directly to your home screen every day. A quick glance is all it takes to boost your vocabulary!")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                VStack(spacing: 12) {
+                    Button {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
+                            selected = true
                         }
+                    } label: {
+                        Text("Add Widget")
                     }
+                    .buttonStyle(PrimaryOnboardingButtonStyle())
+                    
+                    Button {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
+                            selected = false
+                        }
+                    } label: {
+                        Text("Not Now")
+                    }
+                    .buttonStyle(SecondaryOnboardingButtonStyle())
                 }
-                .padding(.horizontal, 16)
-                
-                Spacer(minLength: 100)
             }
-            .padding(.vertical, 16)
         }
     }
 }
 
-// MARK: - Interests Step
+private struct MotivationCard: View {
+    var body: some View {
+        OnboardingCard {
+            VStack(spacing: 16) {
+                Image("onboarding-motivation")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 220)
+                    .accessibilityHidden(true)
+                
+                Text("Ready for a transformation?")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    MotivationRow(text: "A stronger vocabulary bank, enriched with practical words")
+                    MotivationRow(text: "Boosted speaking confidence to articulate your thoughts effortlessly")
+                    MotivationRow(text: "A consistent learning habit, making progress daily")
+                }
+            }
+        }
+    }
+}
 
-private struct InterestsStepView: View {
-    @EnvironmentObject private var viewModel: OnboardingViewModel
+private struct TopicsSelectionView: View {
+    let topics: [Topic]
+    @Binding var selectedTopics: Set<String>
+    @Binding var customTopicText: String
+    let onAddCustomTopic: () -> Void
+    
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("What interests you?")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Select at least 3 topics you'd like to learn vocabulary about.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 16)
-                
-                // Custom Topic Input
+        VStack(alignment: .leading, spacing: 20) {
+            OnboardingCard {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Add Your Own Topic")
                         .font(.headline)
-                        .foregroundColor(.primary)
                     
-                    HStack {
-                        TextField("Enter a topic (e.g., Photography, Cooking)", text: $viewModel.customTopicText)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .onSubmit {
-                                viewModel.addCustomTopic()
-                            }
+                    HStack(spacing: 12) {
+                        TextField("e.g., Photography, Cooking", text: $customTopicText)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(onAddCustomTopic)
                         
-                        Button(action: {
-                            viewModel.addCustomTopic()
-                        }) {
+                        Button(action: onAddCustomTopic) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
-                                .foregroundColor(viewModel.customTopicText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                                .foregroundColor(customTopicText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .accentColor)
                         }
-                        .disabled(viewModel.customTopicText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(customTopicText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
+                    
+                    Text("Select at least 3 topics")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 16)
-                
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    ForEach(viewModel.availableTopics, id: \.id) { topic in
-                        TopicSelectionCard(
-                            topic: topic,
-                            isSelected: viewModel.selectedTopics.contains(topic.id)
-                        ) {
-                            viewModel.toggleTopic(topic.id)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                
-                if !viewModel.selectedTopics.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Selected: \(viewModel.selectedTopics.count) topics")
-                            .font(.headline)
-                            .foregroundColor(viewModel.selectedTopics.count >= 3 ? .green : .orange)
-                        
-                        if viewModel.selectedTopics.count < 3 {
-                            Text("Select at least 3 topics to continue")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                
-                Spacer(minLength: 100)
             }
-            .padding(.vertical, 16)
+            
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(topics) { topic in
+                    TopicChip(
+                        topic: topic,
+                        isSelected: selectedTopics.contains(topic.id)
+                    ) {
+                        toggle(topic.id)
+                    }
+                }
+            }
+            
+            if !selectedTopics.isEmpty {
+                Text("Selected: \(selectedTopics.count) topics")
+                    .font(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundColor(selectedTopics.count >= 3 ? .accentColor : .orange)
+            }
         }
     }
-}
-
-// MARK: - Preferences Step
-
-private struct PreferencesStepView: View {
-    @EnvironmentObject private var viewModel: OnboardingViewModel
     
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Learning Preferences")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Customize your learning experience")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                VStack(alignment: .leading, spacing: 24) {
-                    // Difficulty preference
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Preferred Difficulty")
-                            .font(.headline)
-                        
-                        Picker("Difficulty", selection: $viewModel.preferredDifficulty) {
-                            ForEach(Term.DifficultyLevel.allCases, id: \.self) { difficulty in
-                                Text(difficulty.displayName)
-                                    .tag(difficulty)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    
-                    // Notifications
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Daily Reminders")
-                            .font(.headline)
-                        
-                        Toggle("Enable daily word notifications", isOn: $viewModel.enableNotifications)
-                        
-                        if viewModel.enableNotifications {
-                            DatePicker(
-                                "Preferred time",
-                                selection: $viewModel.notificationTime,
-                                displayedComponents: .hourAndMinute
-                            )
-                            .padding(.leading, 16)
-                        }
-                    }
-                    
-                    // Learning goals
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Daily Goal")
-                            .font(.headline)
-                        
-                        Text("Words per day: \(Int(viewModel.dailyWordGoal))")
-                            .foregroundColor(.secondary)
-                        
-                        Slider(
-                            value: $viewModel.dailyWordGoal,
-                            in: 1...5,
-                            step: 1
-                        )
-                    }
-                }
-                
-                Spacer(minLength: 100)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+    private func toggle(_ id: String) {
+        if selectedTopics.contains(id) {
+            selectedTopics.remove(id)
+        } else {
+            selectedTopics.insert(id)
         }
     }
 }
 
-// MARK: - Complete Step
-
-private struct CompleteStepView: View {
-    @EnvironmentObject private var viewModel: OnboardingViewModel
-    
-    var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
-            
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-            
-            VStack(spacing: 16) {
-                if viewModel.isPreparingFirstWord {
-                    Text("Preparing your first word...")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("We're generating personalized vocabulary based on your selected topics. This may take a moment.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                } else if viewModel.firstWordReady {
-                    Text("You're all set!")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Larry is ready to help you learn new vocabulary tailored to your interests. Your first word is waiting!")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                } else {
-                    Text("You're all set!")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Larry is ready to help you learn new vocabulary tailored to your interests.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                }
-            }
-            
-            if viewModel.isLoading {
-                ProgressView("Finalizing setup...")
-                    .padding(.top, 16)
-            } else if viewModel.isPreparingFirstWord {
-                ProgressView("Generating your first vocabulary word...")
-                    .padding(.top, 16)
-            }
-            
-            if let firstWordError = viewModel.firstWordError {
-                Text("⚠️ \(firstWordError)")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-    }
-}
-
-// MARK: - Supporting Views
-
-private struct TopicSelectionCard: View {
+private struct TopicChip: View {
     let topic: Topic
     let isSelected: Bool
-    let onToggle: () -> Void
+    let action: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: topic.category.systemImageName)
-                    .foregroundColor(isSelected ? .white : .blue)
+        Button(action: {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                action()
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: topic.category.systemImageName)
+                        .foregroundColor(isSelected ? .white : .accentColor)
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.white)
+                    }
+                }
+                
+                Text(topic.name)
+                    .font(.headline)
+                    .foregroundColor(isSelected ? .white : .primary)
+                    .lineLimit(2)
+                
+                Text(topic.description)
+                    .font(.caption)
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                    .lineLimit(2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Color.accentColor : Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(20)
+            .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 4)
+        }
+    }
+}
+
+private struct SelectableRow: View {
+    let title: String
+    let subtitle: String
+    let systemIcon: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: systemIcon)
+                    .font(.title3)
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .frame(width: 28)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.white)
+                        .foregroundColor(.accentColor)
                 }
             }
-            
-            Text(topic.name)
+            .padding(16)
+            .background(Color(uiColor: .systemGray6))
+            .cornerRadius(20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                    )
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+        }
+    }
+}
+
+private struct SelectableCard: View {
+    enum Style {
+        case vertical
+        case horizontal
+    }
+    
+    let title: String
+    let subtitle: String
+    let systemIcon: String
+    let isSelected: Bool
+    var style: Style = .vertical
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: systemIcon)
+                        .font(.title3)
+                        .foregroundColor(isSelected ? .white : .accentColor)
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isSelected ? Color.white.opacity(0.2) : Color.accentColor.opacity(0.12))
+                        )
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundColor(isSelected ? .white : .primary)
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+                
+                if isSelected {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(isSelected ? Color.accentColor : Color(uiColor: .secondarySystemGroupedBackground))
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 4)
+        }
+    }
+}
+
+private struct MotivationRow: View {
+    let text: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundColor(.accentColor)
+            Text(text)
                 .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(isSelected ? .white : .primary)
-                .lineLimit(2)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+private struct CompleteStepView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 80))
+                .foregroundColor(.accentColor)
             
-            Text(topic.description)
-                .font(.caption)
-                .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
-                .lineLimit(2)
+            Text("You're all set!")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text("Your personalized vocabulary journey is ready to begin.")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
         }
-        .padding(12)
-        .background(isSelected ? Color.blue : Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-        .onTapGesture {
-            onToggle()
-        }
+        .frame(maxWidth: .infinity)
     }
 }
 
