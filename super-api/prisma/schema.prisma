@@ -32,6 +32,12 @@ model User {
   dailyWordGoal        Int          @default(1)
   onboardingCompleted  Boolean      @default(false)
   
+  // New onboarding step fields
+  onboardingSource     String?      // How user found the app
+  learningLevel        String?      // User's skill level
+  widgetOptIn          Boolean?     // Widget preference
+  onboardingStep       String       @default("welcome") // Current step tracking
+  
   // Delivery tracking fields
   firstVocabGenerated  Boolean      @default(false)
   lastDailyWordDate    DateTime?

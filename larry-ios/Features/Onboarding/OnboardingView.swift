@@ -383,7 +383,7 @@ private struct MotivationCard: View {
 }
 
 private struct TopicsSelectionView: View {
-    let topics: [Topic]
+    let topics: [OnboardingTopic]
     @Binding var selectedTopics: Set<String>
     @Binding var customTopicText: String
     let onAddCustomTopic: () -> Void
@@ -446,7 +446,7 @@ private struct TopicsSelectionView: View {
 }
 
 private struct TopicChip: View {
-    let topic: Topic
+    let topic: OnboardingTopic
     let isSelected: Bool
     let action: () -> Void
     
@@ -458,7 +458,7 @@ private struct TopicChip: View {
         }) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Image(systemName: topic.category.systemImageName)
+                    Image(systemName: "book.circle.fill")
                         .foregroundColor(isSelected ? .white : .accentColor)
                     Spacer()
                     if isSelected {
@@ -472,7 +472,7 @@ private struct TopicChip: View {
                     .foregroundColor(isSelected ? .white : .primary)
                     .lineLimit(2)
                 
-                Text(topic.description)
+                Text("\(topic.name) vocabulary and terminology")
                     .font(.caption)
                     .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                     .lineLimit(2)

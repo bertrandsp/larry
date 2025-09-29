@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import authRoutes from './api/auth-supabase';
 import userRoutes from './api/users-supabase';
 import onboardingRoutes from './api/onboarding-supabase';
+import onboardingStepsRoutes from './api/onboarding-steps-supabase';
+import firstDailyRoutes from './api/first-daily-supabase';
 
 dotenv.config();
 
@@ -29,6 +31,8 @@ app.get('/health', (req, res) => {
 app.use('/user', userRoutes);
 app.use('/', authRoutes);
 app.use('/', onboardingRoutes);
+app.use('/', onboardingStepsRoutes);
+app.use('/', firstDailyRoutes);
 
 // Start server
 app.listen(PORT, () => {

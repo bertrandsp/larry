@@ -138,7 +138,7 @@ class OnboardingViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published var currentStep: OnboardingStep = .welcome
-    @Published var availableTopics: [Topic] = []
+    @Published var availableTopics: [OnboardingTopic] = []
     @Published var selectedTopics: Set<String> = []
     @Published var customTopicText: String = ""
     @Published private(set) var customTopicNames: [String: String] = [:]
@@ -338,18 +338,10 @@ class OnboardingViewModel: ObservableObject {
         }
         
         // Create a new custom topic
-        let customTopic = Topic(
+        let customTopic = OnboardingTopic(
             id: "custom-\(UUID().uuidString)",
             name: trimmedText,
-            description: "Custom topic: \(trimmedText)",
-            category: .other,
-            iconName: "plus.circle",
-            colorHex: "#007AFF",
-            isActive: true,
-            termCount: 0,
-            createdAt: Date(),
-            updatedAt: Date(),
-            userTopicWeight: nil
+            canonicalSetId: nil
         )
         
         // Add to available topics and track custom label
@@ -407,7 +399,8 @@ class OnboardingViewModel: ObservableObject {
             do {
                 availableTopics = try await onboardingAPI.fetchTopics()
             } catch {
-                availableTopics = Topic.previewDataList
+                // Fallback to empty array since we need real API data
+                availableTopics = []
                 #if DEBUG
                 print("⚠️ Failed to load topics from API, falling back to preview: \(error)")
                 #endif

@@ -1,7 +1,7 @@
 import Foundation
 
 protocol OnboardingSubmitting {
-    func fetchTopics() async throws -> [Topic]
+    func fetchTopics() async throws -> [OnboardingTopic]
     func recordStep(userId: String, step: OnboardingStepKey) async throws
     func submitDailyGoal(userId: String, goal: Int) async throws
     func submitSource(userId: String, source: String) async throws
@@ -43,8 +43,8 @@ final class RemoteOnboardingAPI: OnboardingSubmitting {
         self.apiService = apiService
     }
     
-    func fetchTopics() async throws -> [Topic] {
-        try await apiService.getTopics()
+    func fetchTopics() async throws -> [OnboardingTopic] {
+        try await apiService.getOnboardingTopics()
     }
     
     func recordStep(userId: String, step: OnboardingStepKey) async throws {
@@ -61,7 +61,7 @@ final class RemoteOnboardingAPI: OnboardingSubmitting {
         case .skillLevel:
             path = "/onboarding/skill-level"
         case .widget:
-            path = "/onboarding/widget"
+            path = "/onboarding/widget-preference"
         case .motivation:
             path = "/onboarding/motivation"
         case .learningPath:
@@ -74,42 +74,42 @@ final class RemoteOnboardingAPI: OnboardingSubmitting {
     
     func submitDailyGoal(userId: String, goal: Int) async throws {
         try await apiService.postOnboardingStep(
-            DailyGoalRequest(userId: userId, dailyGoal: goal),
+            DailyGoalRequest(goal: goal),
             path: "/onboarding/daily-goal"
         )
     }
     
     func submitSource(userId: String, source: String) async throws {
         try await apiService.postOnboardingStep(
-            SourceRequest(userId: userId, source: source),
+            SourceRequest(source: source),
             path: "/onboarding/source"
         )
     }
     
     func submitSkillLevel(userId: String, level: String) async throws {
         try await apiService.postOnboardingStep(
-            SkillLevelRequest(userId: userId, level: level),
+            SkillLevelRequest(level: level),
             path: "/onboarding/skill-level"
         )
     }
     
     func submitWidgetPreference(userId: String, enabled: Bool) async throws {
         try await apiService.postOnboardingStep(
-            WidgetPreferenceRequest(userId: userId, enabled: enabled),
-            path: "/onboarding/widget"
+            WidgetPreferenceRequest(enabled: enabled),
+            path: "/onboarding/widget-preference"
         )
     }
     
     func submitLearningPath(userId: String, path: String) async throws {
         try await apiService.postOnboardingStep(
-            LearningPathRequest(userId: userId, path: path),
+            LearningPathRequest(path: path),
             path: "/onboarding/learning-path"
         )
     }
     
     func submitTopics(userId: String, topicIds: [String], customTopics: [String]) async throws {
         try await apiService.postOnboardingStep(
-            TopicSelectionRequest(userId: userId, topicIds: topicIds, customTopics: customTopics),
+            TopicSelectionRequest(topicIds: topicIds, customTopics: customTopics),
             path: "/onboarding/topics"
         )
     }
@@ -122,32 +122,26 @@ private struct RecordStepRequest: Codable {
 }
 
 private struct DailyGoalRequest: Codable {
-    let userId: String
-    let dailyGoal: Int
+    let goal: Int
 }
 
 private struct SourceRequest: Codable {
-    let userId: String
     let source: String
 }
 
 private struct SkillLevelRequest: Codable {
-    let userId: String
     let level: String
 }
 
 private struct WidgetPreferenceRequest: Codable {
-    let userId: String
     let enabled: Bool
 }
 
 private struct LearningPathRequest: Codable {
-    let userId: String
     let path: String
 }
 
 private struct TopicSelectionRequest: Codable {
-    let userId: String
     let topicIds: [String]
     let customTopics: [String]
 }

@@ -19,7 +19,7 @@ const supabase = createClient(
   }
 );
 
-// POST /onboarding/complete - Complete user onboarding
+// POST /onboarding/complete - Complete user onboarding (final step)
 router.post('/onboarding/complete', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -44,44 +44,12 @@ router.post('/onboarding/complete', async (req, res) => {
 
     const userId = userIdMatch[1];
     
-    const {
-      name,
-      username,
-      profession_current,
-      profession_target,
-      goal,
-      hobbies,
-      languages,
-      travel_plan,
-      selected_topics,
-      preferred_difficulty,
-      enable_notifications,
-      notification_time,
-      daily_word_goal
-    } = req.body;
-
-    console.log('📋 Completing onboarding for user:', userId);
-    console.log('📋 Onboarding data:', {
-      name,
-      username,
-      profession_current,
-      profession_target,
-      goal,
-      hobbies,
-      languages,
-      travel_plan,
-      selected_topics,
-      preferred_difficulty,
-      enable_notifications,
-      notification_time,
-      daily_word_goal
-    });
+    console.log('🎯 Finalizing onboarding completion for user:', userId);
 
     // Set user context for RLS
     await supabase.rpc('set_current_user_id', { user_id: userId });
     
-    // Check if user exists
-    let existingUser;
+    // Check if user exists and get their current data
     const { data: userData, error: userError } = await supabase
       .from('User')
       .select('*')
@@ -89,76 +57,50 @@ router.post('/onboarding/complete', async (req, res) => {
       .single();
 
     if (userError || !userData) {
-      console.log('🔄 User not found by ID, attempting to find by token pattern...');
-      
-      // Extract email from the user ID if it follows our pattern
-      const emailMatch = userId.match(/apple-user-([^-]+)/);
-      if (emailMatch) {
-        // Try to find user by email pattern
-        const emailPattern = emailMatch[1];
-        const { data: userByPattern, error: patternError } = await supabase
-          .from('User')
-          .select('*')
-          .ilike('email', `%${emailPattern.substring(0, 10)}%`) // Use first 10 chars to avoid too broad search
-          .single();
-          
-        if (!patternError && userByPattern) {
-          existingUser = userByPattern;
-          console.log('✅ Found user by email pattern:', existingUser.id);
-          // Update the user context to the real user ID
-          await supabase.rpc('set_current_user_id', { user_id: existingUser.id });
-        } else {
-          console.error('❌ User not found during onboarding:', userError);
-          return res.status(404).json({
-            success: false,
-            error: 'User not found',
-            message: `Could not find user with ID: ${userId}`
-          });
-        }
-      } else {
-        console.error('❌ User not found during onboarding:', userError);
-        return res.status(404).json({
-          success: false,
-          error: 'User not found',
-          message: userError?.message
-        });
-      }
-    } else {
-      existingUser = userData;
+      console.error('❌ User not found during onboarding completion:', userError);
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        message: userError?.message || 'User not found'
+      });
     }
 
-    // Update user profile with onboarding data (override existing values)
-    const updateData: any = {
-      onboardingCompleted: true,
-      updatedAt: new Date().toISOString(),
-      // Always update these fields, even if empty (to override existing data)
-      name: name || existingUser.name,
-      username: username || existingUser.username,
-      professionCurrent: profession_current || null,
-      professionTarget: profession_target || null,
-      goal: goal || null,
-      hobbies: hobbies || [],
-      languages: languages || [],
-      travelLocation: travel_plan?.location || null,
-      travelDate: travel_plan?.start_date ? new Date(travel_plan.start_date).toISOString() : null,
-      preferredDifficulty: preferred_difficulty || 'intermediate',
-      enableNotifications: enable_notifications !== undefined ? enable_notifications : false,
-      notificationTime: notification_time || null,
-      dailyWordGoal: daily_word_goal || 1
-    };
+    console.log('📱 User data for completion check:', {
+      userId,
+      onboardingSource: userData.onboardingSource,
+      learningLevel: userData.learningLevel,
+      widgetOptIn: userData.widgetOptIn,
+      dailyWordGoal: userData.dailyWordGoal
+    });
 
-    console.log('📋 Update data prepared:', updateData);
+    // Verify that all required onboarding steps are completed
+    const requiredFields = ['onboardingSource', 'learningLevel', 'dailyWordGoal'];
+    const missingFields = requiredFields.filter(field => !userData[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('❌ Onboarding incomplete, missing fields:', missingFields);
+      return res.status(400).json({
+        success: false,
+        error: 'Onboarding incomplete',
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields
+      });
+    }
 
-    // Update user in database
+    // Mark onboarding as completed
     const { data: updatedUser, error: updateError } = await supabase
       .from('User')
-      .update(updateData)
+      .update({
+        onboardingCompleted: true,
+        onboardingStep: 'complete',
+        updatedAt: new Date().toISOString()
+      })
       .eq('id', userId)
       .select()
       .single();
 
     if (updateError) {
-      console.error('❌ Error updating user during onboarding:', updateError);
+      console.error('❌ Error completing onboarding:', updateError);
       return res.status(500).json({
         success: false,
         error: 'Failed to complete onboarding',
@@ -166,27 +108,16 @@ router.post('/onboarding/complete', async (req, res) => {
       });
     }
 
-    // Handle selected topics (simplified for now)
-    if (selected_topics && Array.isArray(selected_topics) && selected_topics.length > 0) {
-      console.log('📋 Processing selected topics:', selected_topics);
-      
-      // For now, just log the topics. In a full implementation, you'd:
-      // 1. Create UserTopic entries for each selected topic
-      // 2. Handle custom topics
-      // 3. Set topic weights
-      
-      // This is a placeholder - the topics will be handled in a future update
-      console.log('📋 Topics will be processed in a future update');
-    }
-
     console.log('✅ Onboarding completed successfully for user:', userId);
+    console.log('🎯 Ready to trigger first daily word delivery');
 
     res.json({
       success: true,
       message: 'Onboarding completed successfully',
       user: updatedUser,
-      next_step: 'home', // Indicate that the client should navigate to home/daily word screen
-      onboarding_completed: true
+      next_step: 'home',
+      onboarding_completed: true,
+      ready_for_daily_word: true
     });
 
   } catch (error: any) {

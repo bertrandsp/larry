@@ -234,13 +234,31 @@ class APIService: ObservableObject {
     func getTopics() async throws -> [Topic] {
         let request = APIRequest(method: .GET, path: "/topics")
         let response: TopicsResponse = try await send(request, responseType: TopicsResponse.self)
+        // Convert OnboardingTopic to Topic for backward compatibility
+        return response.topics.map { onboardingTopic in
+            Topic(
+                id: onboardingTopic.id,
+                name: onboardingTopic.name,
+                description: "\(onboardingTopic.name) vocabulary and terminology",
+                category: .other,
+                iconName: nil,
+                colorHex: nil,
+                isActive: true,
+                termCount: 0,
+                createdAt: Date(),
+                updatedAt: Date(),
+                userTopicWeight: nil
+            )
+        }
+    }
+    
+    func getOnboardingTopics() async throws -> [OnboardingTopic] {
+        let request = APIRequest(method: .GET, path: "/topics")
+        let response: TopicsResponse = try await send(request, responseType: TopicsResponse.self)
         return response.topics
     }
 }
 
-private struct TopicsResponse: Codable {
-    let topics: [Topic]
-}
 
 // MARK: - API Request Structure
 
