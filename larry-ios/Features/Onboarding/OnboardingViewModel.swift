@@ -337,10 +337,16 @@ class OnboardingViewModel: ObservableObject {
             return
         }
         
-        // Create a new custom topic
+        // Create a new custom topic with a temporary ID (will be replaced by backend)
+        let cleanTopicName = trimmedText.lowercased().replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "[^a-z0-9-]", with: "", options: .regularExpression)
         let customTopic = OnboardingTopic(
-            id: "custom-\(UUID().uuidString)",
+            id: "temp-custom-\(cleanTopicName)-\(Date().timeIntervalSince1970)",
             name: trimmedText,
+            description: "\(trimmedText) vocabulary and terminology",
+            isCustom: true,
+            usageCount: 1,
+            createdAt: ISO8601DateFormatter().string(from: Date()),
             canonicalSetId: nil
         )
         

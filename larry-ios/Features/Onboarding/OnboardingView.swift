@@ -472,7 +472,7 @@ private struct TopicChip: View {
                     .foregroundColor(isSelected ? .white : .primary)
                     .lineLimit(2)
                 
-                Text("\(topic.name) vocabulary and terminology")
+                Text(topic.description ?? "\(topic.name) vocabulary and terminology")
                     .font(.caption)
                     .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                     .lineLimit(2)

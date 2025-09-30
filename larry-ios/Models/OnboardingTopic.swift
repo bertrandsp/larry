@@ -7,15 +7,23 @@
 
 import Foundation
 
-/// Simple topic model for onboarding API responses
+/// Enhanced topic model for onboarding API responses
 struct OnboardingTopic: Codable, Identifiable {
     let id: String
     let name: String
+    let description: String?
+    let isCustom: Bool
+    let usageCount: Int
+    let createdAt: String?
     let canonicalSetId: String?
     
     enum CodingKeys: String, CodingKey {
         case id
         case name
+        case description
+        case isCustom
+        case usageCount
+        case createdAt
         case canonicalSetId
     }
 }

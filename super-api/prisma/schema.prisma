@@ -56,13 +56,20 @@ model User {
 
 model Topic {
   id              String        @id @default(uuid())
-  name            String
+  name            String        @unique
+  description     String?       // Optional description for the topic
+  isCustom        Boolean       @default(false) // Whether this is a user-created topic
+  createdByUserId String?       // ID of user who created this topic (optional, for metadata only)
+  usageCount      Int           @default(1) // How many users have selected this topic
+  isActive        Boolean       @default(true) // Whether this topic is still available for selection
   canonicalSetId  String?
   canonicalSet    CanonicalSet? @relation(fields: [canonicalSetId], references: [id])
   userTopics      UserTopic[]
   terms           Term[]
   facts           Fact[]
   metricLogs      MetricLog[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model UserTopic {

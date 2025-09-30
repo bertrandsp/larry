@@ -252,53 +252,98 @@ router.post('/onboarding/topics', async (req, res) => {
     }
 
     const { topicIds, customTopics } = req.body;
-    if (!topicIds || !Array.isArray(topicIds) || topicIds.length < 3) {
-      return res.status(400).json({ success: false, error: 'At least 3 topics must be selected' });
+    const totalTopics = (topicIds?.length || 0) + (customTopics?.length || 0);
+    if (!topicIds || !Array.isArray(topicIds) || totalTopics < 3) {
+      return res.status(400).json({ success: false, error: 'At least 3 topics must be selected (including custom topics)' });
     }
 
     await setUserContext(userId);
 
-    // Handle custom topics first (create them if they don't exist)
-    const createdCustomTopics = [];
-    if (customTopics && customTopics.length > 0) {
-      for (const customTopicName of customTopics) {
-        // Check if topic already exists
-        const { data: existingTopic } = await supabase
+    // First, check if any selected topicIds are custom topics and increment their usage count
+    const customTopicIdsToIncrement = [];
+    if (topicIds && topicIds.length > 0) {
+      for (const topicId of topicIds) {
+        const { data: topic } = await supabase
           ?.from('Topic')
-          .select('id')
-          .eq('name', customTopicName)
+          .select('id, name, isCustom, usageCount')
+          .eq('id', topicId)
           .single() || { data: null };
-
-        if (!existingTopic) {
-          // Create new custom topic
-          const { data: newTopic, error: createError } = await supabase
+        
+        if (topic && topic.isCustom) {
+          // This is a custom topic being selected again, increment usage count
+          const { error: updateError } = await supabase
             ?.from('Topic')
-            .insert({
-              id: `topic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              name: customTopicName
+            .update({ 
+              usageCount: (topic.usageCount || 0) + 1,
+              updatedAt: new Date().toISOString()
             })
-            .select()
-            .single() || { data: null, error: null };
+            .eq('id', topicId) || { error: null };
 
-          if (createError) {
-            console.error('❌ Error creating custom topic:', createError);
-            return res.status(500).json({ success: false, error: 'Failed to create custom topic' });
+          if (updateError) {
+            console.error('❌ Error updating custom topic usage count:', updateError);
+          } else {
+            customTopicIdsToIncrement.push(topicId);
+            console.log(`✅ Incremented usage count for existing custom topic: ${topic.name} (${topicId})`);
           }
-
-          if (newTopic) {
-            createdCustomTopics.push(newTopic.id);
-            console.log(`✅ Created custom topic: ${customTopicName} (${newTopic.id})`);
-          }
-        } else {
-          createdCustomTopics.push(existingTopic.id);
-          console.log(`✅ Found existing custom topic: ${customTopicName} (${existingTopic.id})`);
         }
       }
     }
 
-    // Combine stock topics and custom topics
-    const allTopicIds = [...topicIds, ...createdCustomTopics];
+      // Handle custom topics first (create them globally if they don't exist)
+      const createdCustomTopics = [];
+      const existingCustomTopicIds = [];
+      
+      if (customTopics && customTopics.length > 0) {
+        for (const customTopicName of customTopics) {
+          // Check if topic already exists (case-insensitive)
+          const { data: existingTopic } = await supabase
+            ?.from('Topic')
+            .select('id, usageCount')
+            .ilike('name', customTopicName)
+            .single() || { data: null };
+
+          if (!existingTopic) {
+            // Create new global custom topic
+            const cleanTopicName = customTopicName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+            const topicId = `topic-custom-${cleanTopicName}-${Date.now()}`;
+            
+            const { data: newTopic, error: createError } = await supabase
+              ?.from('Topic')
+              .insert({
+                id: topicId,
+                name: customTopicName,
+                description: `${customTopicName} vocabulary and terminology`,
+                isCustom: true,
+                createdByUserId: userId, // Track who created it for metadata
+                usageCount: 1,
+                isActive: true
+              })
+              .select()
+              .single() || { data: null, error: null };
+
+            if (createError) {
+              console.error('❌ Error creating custom topic:', createError);
+              return res.status(500).json({ success: false, error: 'Failed to create custom topic' });
+            }
+
+            if (newTopic) {
+              createdCustomTopics.push(newTopic.id);
+              console.log(`✅ Created global custom topic: ${customTopicName} (${newTopic.id})`);
+            }
+          } else {
+            // Topic exists, add to existing topics list (usage count already incremented above)
+            existingCustomTopicIds.push(existingTopic.id);
+            console.log(`✅ Found existing global topic: ${customTopicName} (${existingTopic.id})`);
+          }
+        }
+      }
+
+    // Combine stock topics, existing custom topics, and newly created custom topics
+    const allTopicIds = [...topicIds, ...existingCustomTopicIds, ...createdCustomTopics];
     console.log('📋 All topic IDs to process:', allTopicIds);
+    console.log('📋 Stock topics:', topicIds);
+    console.log('📋 Existing custom topics:', existingCustomTopicIds);
+    console.log('📋 Newly created custom topics:', createdCustomTopics);
 
     // Create UserTopic entries for all selected topics
     const userTopics = allTopicIds.map((topicId, index) => ({
@@ -377,13 +422,27 @@ router.get('/topics', async (req, res) => {
     const { data: topics, error } = await supabase
       ?.from('Topic')
       .select('*')
+      .eq('isActive', true)
+      .order('isCustom', { ascending: true }) // Show predefined topics first
+      .order('usageCount', { ascending: false }) // Then by popularity
       .order('name') || { data: [], error: null };
 
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
 
-    res.json({ success: true, topics: topics || [] });
+    // Transform topics to include metadata
+    const transformedTopics = (topics || []).map(topic => ({
+      id: topic.id,
+      name: topic.name,
+      description: topic.description || `${topic.name} vocabulary and terminology`,
+      isCustom: topic.isCustom || false,
+      usageCount: topic.usageCount || 0,
+      createdAt: topic.createdAt,
+      canonicalSetId: topic.canonicalSetId
+    }));
+
+    res.json({ success: true, topics: transformedTopics });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
