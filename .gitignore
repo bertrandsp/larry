@@ -200,6 +200,10 @@ dump.rdb
 
 # Supabase
 supabase/.temp/
+
+# Large files
+super-api.zip
+
 # Environment files
 .env
 .env.local
