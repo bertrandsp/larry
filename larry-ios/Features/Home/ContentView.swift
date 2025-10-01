@@ -113,6 +113,10 @@ struct HomeView: View {
                 }
             }
             
+            // Enhanced first daily word section
+            firstDailyWordSection
+            
+            // Regular daily words section
             switch viewModel.dailyWords {
             case .loading:
                 ProgressView("Loading your words...")
@@ -137,6 +141,45 @@ struct HomeView: View {
                     retryAction: {
                         Task {
                             await viewModel.loadDailyWords()
+                        }
+                    }
+                )
+                
+            case .idle:
+                EmptyView()
+            }
+        }
+    }
+    
+    private var firstDailyWordSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            switch viewModel.firstDailyWord {
+            case .loading:
+                ProgressView("Loading your first word...")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                
+            case .success(let response):
+                if let firstWord = response.dailyWord {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your First Word")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        EnhancedDailyWordCard(dailyWord: firstWord)
+                    }
+                } else {
+                    EmptyView()
+                }
+                
+            case .error(let error):
+                ErrorView(
+                    title: "Failed to load first word",
+                    message: error.localizedDescription,
+                    retryAction: {
+                        Task {
+                            await viewModel.loadFirstDailyWord()
                         }
                     }
                 )

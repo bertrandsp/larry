@@ -15,6 +15,7 @@ class HomeViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published var dailyWords: ViewState<DailyWordsResponse> = .idle
+    @Published var firstDailyWord: ViewState<FirstDailyWordResponse> = .idle
     @Published var isRefreshing = false
     
     // MARK: - Private Properties
@@ -33,11 +34,13 @@ class HomeViewModel: ObservableObject {
     
     func loadInitialData() async {
         await loadDailyWords()
+        await loadFirstDailyWord()
     }
     
     func refreshData() async {
         isRefreshing = true
         await loadDailyWords()
+        await loadFirstDailyWord()
         isRefreshing = false
     }
     
@@ -161,6 +164,92 @@ class HomeViewModel: ObservableObject {
         } catch {
             #if DEBUG
             print("❌ Failed to mark word as mastered: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Enhanced Vocabulary Actions
+    
+    func loadFirstDailyWord() async {
+        guard let userId = AuthManager.shared.currentUser?.id else {
+            #if DEBUG
+            print("❌ No user ID available for first daily word")
+            #endif
+            return
+        }
+        
+        firstDailyWord.setLoading()
+        
+        do {
+            let response = try await APIService.shared.getFirstDailyWord(userId: userId)
+            firstDailyWord.setSuccess(response)
+            
+            #if DEBUG
+            print("✅ First daily word loaded: \(response.dailyWord?.term ?? "none")")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to load first daily word: \(error)")
+            #endif
+            
+            // Use mock data in debug mode if API fails
+            #if DEBUG
+            if error is NetworkError {
+                firstDailyWord.setSuccess(FirstDailyWordResponse(
+                    success: true,
+                    dailyWord: FirstDailyWord.previewData,
+                    message: "Mock data for development"
+                ))
+                print("🔄 Using mock data for first daily word")
+                return
+            }
+            #endif
+            
+            firstDailyWord.setError(error)
+        }
+    }
+    
+    func updateTermRelevance(userId: String, termId: String, isRelevant: Bool) async {
+        do {
+            let response = try await APIService.shared.updateTermRelevance(
+                userId: userId,
+                termId: termId,
+                isRelevant: isRelevant
+            )
+            
+            if response.success {
+                #if DEBUG
+                print("✅ Term relevance updated: \(isRelevant ? "relevant" : "unrelated")")
+                #endif
+                
+                // Refresh the first daily word to get updated data
+                await loadFirstDailyWord()
+            }
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to update term relevance: \(error)")
+            #endif
+        }
+    }
+    
+    func trackVocabularyAction(termId: String, action: VocabularyAction) async {
+        do {
+            let response = try await APIService.shared.trackVocabularyAction(
+                termId: termId,
+                action: action
+            )
+            
+            if response.success {
+                #if DEBUG
+                print("✅ Vocabulary action tracked: \(action.rawValue)")
+                #endif
+            }
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to track vocabulary action: \(error)")
             #endif
         }
     }

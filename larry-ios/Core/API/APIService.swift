@@ -211,13 +211,13 @@ class APIService: ObservableObject {
     }
     
     /// Get enhanced daily word (with delivery tracking) for returning users
-    func getEnhancedDailyWord(userId: String) async throws -> EnhancedDailyWord {
+    func getEnhancedDailyWord(userId: String) async throws -> EnhancedDailyWordResponse {
         let request = APIRequest(
             method: .GET,
             path: "/daily?userId=\(userId)"
         )
         
-        return try await send(request, responseType: EnhancedDailyWord.self)
+        return try await send(request, responseType: EnhancedDailyWordResponse.self)
     }
 
     // MARK: - Onboarding
@@ -256,6 +256,39 @@ class APIService: ObservableObject {
         let request = APIRequest(method: .GET, path: "/topics")
         let response: TopicsResponse = try await send(request, responseType: TopicsResponse.self)
         return response.topics
+    }
+    
+    // MARK: - Enhanced Vocabulary Actions
+    
+    /// Mark a term as relevant or unrelated
+    func updateTermRelevance(userId: String, termId: String, isRelevant: Bool) async throws -> VocabularyActionResponse {
+        let requestBody = [
+            "related": isRelevant
+        ]
+        
+        let request = try APIRequest(
+            method: .PUT,
+            path: "/user/\(userId)/terms/\(termId)/relevance",
+            body: requestBody
+        )
+        
+        return try await send(request, responseType: VocabularyActionResponse.self)
+    }
+    
+    /// Track user action on a vocabulary term
+    func trackVocabularyAction(termId: String, action: VocabularyAction) async throws -> VocabularyActionResponse {
+        let requestBody = [
+            "action": action.rawValue,
+            "termId": termId
+        ]
+        
+        let request = try APIRequest(
+            method: .POST,
+            path: "/vocabulary/action",
+            body: requestBody
+        )
+        
+        return try await send(request, responseType: VocabularyActionResponse.self)
     }
 }
 
