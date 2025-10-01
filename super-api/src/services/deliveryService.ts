@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -24,16 +24,19 @@ export interface WordbankEntry {
 /**
  * Create a delivery record for a word delivered to a user
  */
-export async function createDelivery(userId: string, termId: string): Promise<DeliveryResult> {
+export async function createDelivery(
+  userId: string,
+  termId: string,
+): Promise<DeliveryResult> {
   console.log(`📦 Creating delivery record for user ${userId}, term ${termId}`);
-  
+
   try {
     const delivery = await prisma.delivery.create({
       data: {
         userId,
         termId,
-        action: 'NONE'
-      }
+        action: "NONE",
+      },
     });
 
     console.log(`✅ Delivery created: ${delivery.id}`);
@@ -42,7 +45,7 @@ export async function createDelivery(userId: string, termId: string): Promise<De
       userId: delivery.userId,
       termId: delivery.termId,
       deliveredAt: delivery.deliveredAt,
-      action: delivery.action
+      action: delivery.action,
     };
   } catch (error) {
     console.error(`❌ Failed to create delivery:`, error);
@@ -53,16 +56,19 @@ export async function createDelivery(userId: string, termId: string): Promise<De
 /**
  * Update delivery action when user interacts with the word
  */
-export async function updateDeliveryAction(deliveryId: string, action: 'FAVORITE' | 'LEARN_AGAIN' | 'MASTERED'): Promise<void> {
+export async function updateDeliveryAction(
+  deliveryId: string,
+  action: "FAVORITE" | "LEARN_AGAIN" | "MASTERED",
+): Promise<void> {
   console.log(`🔄 Updating delivery ${deliveryId} with action: ${action}`);
-  
+
   try {
     await prisma.delivery.update({
       where: { id: deliveryId },
-      data: { 
+      data: {
         action,
-        openedAt: new Date() // Mark as opened when action is taken
-      }
+        openedAt: new Date(), // Mark as opened when action is taken
+      },
     });
 
     console.log(`✅ Delivery action updated: ${action}`);
@@ -75,18 +81,21 @@ export async function updateDeliveryAction(deliveryId: string, action: 'FAVORITE
 /**
  * Add a word to user's wordbank for spaced repetition
  */
-export async function addToWordbank(userId: string, termId: string): Promise<WordbankEntry> {
+export async function addToWordbank(
+  userId: string,
+  termId: string,
+): Promise<WordbankEntry> {
   console.log(`📚 Adding term ${termId} to wordbank for user ${userId}`);
-  
+
   try {
     // Check if already in wordbank
     const existing = await prisma.wordbank.findUnique({
       where: {
         userId_termId: {
           userId,
-          termId
-        }
-      }
+          termId,
+        },
+      },
     });
 
     if (existing) {
@@ -99,7 +108,7 @@ export async function addToWordbank(userId: string, termId: string): Promise<Wor
         bucket: existing.bucket,
         lastReviewed: existing.lastReviewed || undefined,
         nextReview: existing.nextReview || undefined,
-        reviewCount: existing.reviewCount
+        reviewCount: existing.reviewCount,
       };
     }
 
@@ -111,11 +120,11 @@ export async function addToWordbank(userId: string, termId: string): Promise<Wor
       data: {
         userId,
         termId,
-        status: 'LEARNING',
+        status: "LEARNING",
         bucket: 1,
         nextReview,
-        reviewCount: 0
-      }
+        reviewCount: 0,
+      },
     });
 
     console.log(`✅ Added to wordbank: ${wordbankEntry.id}`);
@@ -127,7 +136,7 @@ export async function addToWordbank(userId: string, termId: string): Promise<Wor
       bucket: wordbankEntry.bucket,
       lastReviewed: wordbankEntry.lastReviewed || undefined,
       nextReview: wordbankEntry.nextReview || undefined,
-      reviewCount: wordbankEntry.reviewCount
+      reviewCount: wordbankEntry.reviewCount,
     };
   } catch (error) {
     console.error(`❌ Failed to add to wordbank:`, error);
@@ -140,45 +149,46 @@ export async function addToWordbank(userId: string, termId: string): Promise<Wor
  */
 export async function getNextDailyWord(userId: string): Promise<any> {
   console.log(`🎯 Getting next daily word for user ${userId}`);
-  
+
   try {
     // First, check for words due for review
     const dueForReview = await prisma.wordbank.findMany({
       where: {
         userId,
         nextReview: {
-          lte: new Date()
+          lte: new Date(),
         },
         status: {
-          in: ['LEARNING', 'REVIEWING']
-        }
+          in: ["LEARNING", "REVIEWING"],
+        },
+        relevance: "RELATED",
       },
       include: {
         term: {
           include: {
-            topic: true
-          }
-        }
+            topic: true,
+          },
+        },
       },
       orderBy: {
-        nextReview: 'asc'
+        nextReview: "asc",
       },
-      take: 1
+      take: 1,
     });
 
     if (dueForReview.length > 0) {
       console.log(`📖 Found word due for review: ${dueForReview[0].term.term}`);
       return {
-        type: 'review',
+        type: "review",
         wordbank: dueForReview[0],
-        term: dueForReview[0].term
+        term: dueForReview[0].term,
       };
     }
 
     // If no reviews due, get a new word from user's topics
     const userTopics = await prisma.userTopic.findMany({
-      where: { userId },
-      include: { topic: true }
+      where: { userId, enabled: true },
+      include: { topic: true },
     });
 
     if (userTopics.length === 0) {
@@ -187,33 +197,33 @@ export async function getNextDailyWord(userId: string): Promise<any> {
     }
 
     // Get terms from user's topics that aren't already in wordbank
-    const topicIds = userTopics.map(ut => ut.topicId);
+    const topicIds = userTopics.map((ut) => ut.topicId);
     const existingTermIds = await prisma.wordbank.findMany({
       where: { userId },
-      select: { termId: true }
+      select: { termId: true },
     });
-    const existingTermIdSet = new Set(existingTermIds.map(w => w.termId));
+    const existingTermIdSet = new Set(existingTermIds.map((w) => w.termId));
 
     const availableTerms = await prisma.term.findMany({
       where: {
         topicId: { in: topicIds },
-        moderationStatus: 'APPROVED',
-        id: { notIn: Array.from(existingTermIdSet) }
+        moderationStatus: "APPROVED",
+        id: { notIn: Array.from(existingTermIdSet) },
       },
       include: { topic: true },
-      orderBy: { confidenceScore: 'desc' },
-      take: 10
+      orderBy: { confidenceScore: "desc" },
+      take: 10,
     });
 
     if (availableTerms.length > 0) {
       // Pick a random term from available ones
       const randomIndex = Math.floor(Math.random() * availableTerms.length);
       const selectedTerm = availableTerms[randomIndex];
-      
+
       console.log(`🆕 Selected new term: ${selectedTerm.term}`);
       return {
-        type: 'new',
-        term: selectedTerm
+        type: "new",
+        term: selectedTerm,
       };
     }
 
@@ -229,14 +239,14 @@ export async function getNextDailyWord(userId: string): Promise<any> {
  * Update wordbank entry after user review
  */
 export async function updateWordbankAfterReview(
-  wordbankId: string, 
-  action: 'FAVORITE' | 'LEARN_AGAIN' | 'MASTERED'
+  wordbankId: string,
+  action: "FAVORITE" | "LEARN_AGAIN" | "MASTERED",
 ): Promise<void> {
   console.log(`📝 Updating wordbank ${wordbankId} after review: ${action}`);
-  
+
   try {
     const wordbank = await prisma.wordbank.findUnique({
-      where: { id: wordbankId }
+      where: { id: wordbankId },
     });
 
     if (!wordbank) {
@@ -248,20 +258,20 @@ export async function updateWordbankAfterReview(
     let nextReview = new Date();
 
     switch (action) {
-      case 'LEARN_AGAIN':
+      case "LEARN_AGAIN":
         // Move back to bucket 1, review tomorrow
         newBucket = 1;
         nextReview.setDate(nextReview.getDate() + 1);
         break;
-      
-      case 'FAVORITE':
+
+      case "FAVORITE":
         // Keep same bucket, but mark as reviewed
         nextReview.setDate(nextReview.getDate() + Math.pow(2, newBucket));
         break;
-      
-      case 'MASTERED':
+
+      case "MASTERED":
         // Mark as mastered, no more reviews needed
-        newStatus = 'MASTERED';
+        newStatus = "MASTERED";
         nextReview = null as any; // Will be handled in the update
         break;
     }
@@ -270,10 +280,10 @@ export async function updateWordbankAfterReview(
       bucket: newBucket,
       status: newStatus,
       lastReviewed: new Date(),
-      reviewCount: wordbank.reviewCount + 1
+      reviewCount: wordbank.reviewCount + 1,
     };
 
-    if (action !== 'MASTERED') {
+    if (action !== "MASTERED") {
       updateData.nextReview = nextReview;
     } else {
       updateData.nextReview = null;
@@ -281,10 +291,12 @@ export async function updateWordbankAfterReview(
 
     await prisma.wordbank.update({
       where: { id: wordbankId },
-      data: updateData
+      data: updateData,
     });
 
-    console.log(`✅ Wordbank updated: bucket ${newBucket}, status ${newStatus}`);
+    console.log(
+      `✅ Wordbank updated: bucket ${newBucket}, status ${newStatus}`,
+    );
   } catch (error) {
     console.error(`❌ Failed to update wordbank:`, error);
     throw error;

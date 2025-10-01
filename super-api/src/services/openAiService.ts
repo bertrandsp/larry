@@ -1,9 +1,13 @@
 import { OpenAI } from "openai";
-import { VocabularyParams, VocabularyResponse, buildPrompt } from "../promptBuilder";
+import {
+  VocabularyParams,
+  VocabularyResponse,
+  buildPrompt,
+} from "../promptBuilder";
 import { logOpenAiUsage } from "../metrics/logEvents";
 
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export interface OpenAiUsage {
@@ -17,39 +21,40 @@ export interface OpenAiUsage {
 
 export async function generateVocabulary(
   params: VocabularyParams,
-  jobId?: string
+  jobId?: string,
 ): Promise<{ response: VocabularyResponse; usage: OpenAiUsage }> {
   const startTime = Date.now();
-  
+
   try {
     console.log(`🔍 generateVocabulary called with params:`, {
       topic: params.topic,
       termSelectionLevel: params.termSelectionLevel,
       definitionComplexityLevel: params.definitionComplexityLevel,
-      numTerms: params.numTerms
+      numTerms: params.numTerms,
     });
     const prompt = buildPrompt(params);
-    
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are a helpful vocabulary coach. Always respond with valid JSON in the exact format requested."
+          content:
+            "You are a helpful vocabulary coach. Always respond with valid JSON in the exact format requested.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.7,
       max_tokens: 4000,
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
     });
 
     const endTime = Date.now();
     const duration = endTime - startTime;
-    
+
     const usage = completion.usage;
     const usageData: OpenAiUsage = {
       model: completion.model,
@@ -57,13 +62,13 @@ export async function generateVocabulary(
       outputTokens: usage?.completion_tokens || 0,
       totalTokens: usage?.total_tokens || 0,
       cost: calculateCost(completion.model, usage?.total_tokens || 0),
-      duration
+      duration,
     };
 
     // Log OpenAI usage
     if (jobId) {
       await logOpenAiUsage(
-        'vocabulary_generation',
+        "vocabulary_generation",
         usageData.model,
         usageData.inputTokens,
         usageData.outputTokens,
@@ -72,8 +77,8 @@ export async function generateVocabulary(
           jobId,
           totalTokens: usageData.totalTokens,
           cost: usageData.cost,
-          duration: usageData.duration
-        }
+          duration: usageData.duration,
+        },
       );
     }
 
@@ -94,19 +99,21 @@ export async function generateVocabulary(
   } catch (error) {
     const endTime = Date.now();
     const duration = endTime - startTime;
-    
+
     console.error("OpenAI generation failed:", error);
-    throw new Error(`OpenAI generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `OpenAI generation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 }
 
 export async function generateSingleTerm(
   term: string,
   topic: string,
-  context?: string
+  context?: string,
 ): Promise<{ definition: string; examples: string[]; source: string }> {
   const prompt = `Define the term "${term}" in the context of "${topic}". 
-${context ? `Additional context: ${context}` : ''}
+${context ? `Additional context: ${context}` : ""}
 
 Provide:
 1. A clear, concise definition (2-3 sentences)
@@ -126,16 +133,17 @@ Respond in JSON format:
       messages: [
         {
           role: "system",
-          content: "You are a helpful vocabulary assistant. Always respond with valid JSON."
+          content:
+            "You are a helpful vocabulary assistant. Always respond with valid JSON.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.5,
       max_tokens: 500,
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -147,15 +155,81 @@ Respond in JSON format:
     return {
       definition: response.definition || `Definition for ${term}`,
       examples: response.examples || [`Example usage of ${term}`],
-      source: response.source || "AI Generated"
+      source: response.source || "AI Generated",
     };
   } catch (error) {
     console.error(`Failed to generate definition for ${term}:`, error);
     return {
       definition: `Definition for ${term} in the context of ${topic}`,
       examples: [`Example usage of ${term}`],
-      source: "AI Generated (Fallback)"
+      source: "AI Generated (Fallback)",
     };
+  }
+}
+
+export async function generateTermsForTopic(
+  topicName: string,
+): Promise<string[]> {
+  const prompt = `You are Larry, a vocabulary coach for the domain: ${topicName}.
+Give me a list of 5–10 specialized terms or lingo commonly used in this domain.
+Return just a list of the terms, nothing else. Avoid generic terms. Make them relevant for learners aiming to understand or belong in this space.`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+    max_tokens: 300,
+  });
+
+  const content = completion.choices[0]?.message?.content || "";
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-*]\s*/, ""))
+    .map((line) => line.replace(/^\d+\.\s*/, ""));
+
+  return lines.slice(0, 10);
+}
+
+export async function generateDefinitionCard(
+  topicName: string,
+  term: string,
+): Promise<any> {
+  const prompt = `You are Larry, a vocabulary coach for the domain: ${topicName}.
+Define the term: "${term}".
+
+Respond with a JSON block that includes:
+{
+  "term": "example term",
+  "definition": "Concise definition under 30 words.",
+  "synonyms": ["synonym1", "synonym2"],
+  "antonyms": ["antonym1", "antonym2"],
+  "examples": ["Sentence using the term in the domain context."],
+  "similar_terms": [
+    {
+      "term": "related term",
+      "difference": "Short description of how it differs from the original term."
+    }
+  ]
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.5,
+    max_tokens: 500,
+  });
+
+  const content = completion.choices[0]?.message?.content || "";
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const jsonString = jsonMatch ? jsonMatch[0] : content;
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Failed to parse definition card JSON:", error, content);
+    throw new Error(`Invalid JSON response for term "${term}"`);
   }
 }
 
@@ -163,22 +237,24 @@ function calculateCost(model: string, tokens: number): number {
   // GPT-4o pricing (as of 2024)
   const pricing = {
     "gpt-4o": {
-      input: 0.005,  // $0.005 per 1K tokens
-      output: 0.015  // $0.015 per 1K tokens
+      input: 0.005, // $0.005 per 1K tokens
+      output: 0.015, // $0.015 per 1K tokens
     },
     "gpt-4o-mini": {
       input: 0.00015,
-      output: 0.0006
-    }
+      output: 0.0006,
+    },
   };
 
-  const modelPricing = pricing[model as keyof typeof pricing] || pricing["gpt-4o"];
-  
+  const modelPricing =
+    pricing[model as keyof typeof pricing] || pricing["gpt-4o"];
+
   // Rough estimate - in practice you'd track input/output separately
   const estimatedInputTokens = tokens * 0.7; // Assume 70% input
   const estimatedOutputTokens = tokens * 0.3; // Assume 30% output
-  
-  return (estimatedInputTokens / 1000 * modelPricing.input) + 
-         (estimatedOutputTokens / 1000 * modelPricing.output);
-}
 
+  return (
+    (estimatedInputTokens / 1000) * modelPricing.input +
+    (estimatedOutputTokens / 1000) * modelPricing.output
+  );
+}

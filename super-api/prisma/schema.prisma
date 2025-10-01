@@ -11,65 +11,68 @@ datasource db {
 }
 
 model User {
-  id                   String       @id @default(uuid())
-  email                String       @unique
-  subscription         String       @default("free")
-  openAiFirstPreferred Boolean      @default(false) // User's preferred pipeline
-  
+  id                   String  @id @default(uuid())
+  email                String  @unique
+  subscription         String  @default("free")
+  openAiFirstPreferred Boolean @default(false) // User's preferred pipeline
+
   // Onboarding fields
-  name                 String?
-  username             String?
-  professionCurrent    String?
-  professionTarget     String?
-  goal                 String?
-  hobbies              String[]     @default([])
-  languages            String[]     @default([])
-  travelLocation       String?
-  travelDate           DateTime?
-  preferredDifficulty  String       @default("intermediate")
-  enableNotifications  Boolean      @default(false)
-  notificationTime     String?
-  dailyWordGoal        Int          @default(1)
-  onboardingCompleted  Boolean      @default(false)
-  
+  name                String?
+  username            String?
+  professionCurrent   String?
+  professionTarget    String?
+  goal                String?
+  hobbies             String[]  @default([])
+  languages           String[]  @default([])
+  travelLocation      String?
+  travelDate          DateTime?
+  preferredDifficulty String    @default("intermediate")
+  enableNotifications Boolean   @default(false)
+  notificationTime    String?
+  dailyWordGoal       Int       @default(1)
+  onboardingCompleted Boolean   @default(false)
+
   // New onboarding step fields
-  onboardingSource     String?      // How user found the app
-  learningLevel        String?      // User's skill level
-  widgetOptIn          Boolean?     // Widget preference
-  onboardingStep       String       @default("welcome") // Current step tracking
-  
+  onboardingSource String? // How user found the app
+  learningLevel    String? // User's skill level
+  widgetOptIn      Boolean? // Widget preference
+  onboardingStep   String   @default("welcome") // Current step tracking
+
   // Delivery tracking fields
-  firstVocabGenerated  Boolean      @default(false)
-  lastDailyWordDate    DateTime?
-  dailyWordStreak      Int          @default(0)
-  
-  topics               UserTopic[]
-  quota                UserQuota?
-  
+  firstVocabGenerated Boolean   @default(false)
+  lastDailyWordDate   DateTime?
+  dailyWordStreak     Int       @default(0)
+
+  topics UserTopic[]
+  quota  UserQuota?
+
   // Add relations
-  deliveries           Delivery[]
-  wordbank             Wordbank[]
-  
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  deliveries     Delivery[]
+  wordbank       Wordbank[]
+  generationLogs GenerationLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Topic {
-  id              String        @id @default(uuid())
-  name            String        @unique
-  description     String?       // Optional description for the topic
-  isCustom        Boolean       @default(false) // Whether this is a user-created topic
-  createdByUserId String?       // ID of user who created this topic (optional, for metadata only)
-  usageCount      Int           @default(1) // How many users have selected this topic
-  isActive        Boolean       @default(true) // Whether this topic is still available for selection
+  id              String          @id @default(uuid())
+  name            String          @unique
+  description     String? // Optional description for the topic
+  isCustom        Boolean         @default(false) // Whether this is a user-created topic
+  createdByUserId String? // ID of user who created this topic (optional, for metadata only)
+  usageCount      Int             @default(1) // How many users have selected this topic
+  isActive        Boolean         @default(true) // Whether this topic is still available for selection
+  maxTerms        Int             @default(10)
   canonicalSetId  String?
-  canonicalSet    CanonicalSet? @relation(fields: [canonicalSetId], references: [id])
+  canonicalSet    CanonicalSet?   @relation(fields: [canonicalSetId], references: [id])
   userTopics      UserTopic[]
   terms           Term[]
   facts           Fact[]
   metricLogs      MetricLog[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  generationLogs  GenerationLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model UserTopic {
@@ -79,14 +82,15 @@ model UserTopic {
   topic   Topic   @relation(fields: [topicId], references: [id])
   topicId String
   weight  Int
+  enabled Boolean @default(true)
 }
 
 model Term {
-  id              String         @id @default(uuid())
+  id              String        @id @default(uuid())
   topicId         String
-  topic           Topic          @relation(fields: [topicId], references: [id])
+  topic           Topic         @relation(fields: [topicId], references: [id])
   canonicalSetId  String?
-  canonicalSet    CanonicalSet?  @relation(fields: [canonicalSetId], references: [id])
+  canonicalSet    CanonicalSet? @relation(fields: [canonicalSetId], references: [id])
   term            String
   definition      String
   example         String
@@ -97,18 +101,19 @@ model Term {
   confidenceScore Float
   category        String
   complexityLevel String
-  createdAt       DateTime       @default(now())
+  createdAt       DateTime      @default(now())
 
   // Admin moderation fields
-  moderationStatus String   @default("pending") // pending, approved, rejected
-  moderationNote   String?  // Optional reason for rejection or notes
-  updatedByAdmin   Boolean  @default(false)
-  updatedAt        DateTime @updatedAt
+  moderationStatus String          @default("pending") // pending, approved, rejected
+  moderationNote   String? // Optional reason for rejection or notes
+  updatedByAdmin   Boolean         @default(false)
+  updatedAt        DateTime        @updatedAt
   metricLogs       MetricLog[]
+  generationLogs   GenerationLog[]
 
   // Add delivery relations
-  deliveries       Delivery[]
-  wordbank         Wordbank[]
+  deliveries Delivery[]
+  wordbank   Wordbank[]
 
   @@unique([topicId, term])
 }
@@ -125,37 +130,37 @@ model Fact {
   createdAt    DateTime @default(now())
 
   // Admin moderation fields
-  moderationStatus String   @default("pending") // pending, approved, rejected
-  moderationNote   String?  // Optional reason for rejection or notes
-  updatedByAdmin   Boolean  @default(false)
-  updatedAt        DateTime @updatedAt
+  moderationStatus String      @default("pending") // pending, approved, rejected
+  moderationNote   String? // Optional reason for rejection or notes
+  updatedByAdmin   Boolean     @default(false)
+  updatedAt        DateTime    @updatedAt
   metricLogs       MetricLog[]
 
   @@unique([topicId, fact])
 }
 
 model CanonicalSet {
-  id     String   @id @default(uuid())
+  id     String  @id @default(uuid())
   terms  Term[]
   topics Topic[]
 }
 
 model UserQuota {
-  id            String   @id @default(uuid())
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String   @unique
-  currentUsage  Int      @default(0)
-  periodStart   DateTime @default(now())
-  lastReset     DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String   @unique
+  currentUsage Int      @default(0)
+  periodStart  DateTime @default(now())
+  lastReset    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([userId])
 }
 
 model MetricLog {
   id        String   @id @default(uuid())
-  type      String   // e.g., "openai", "fallback", "pipeline_failure", "moderation"
+  type      String // e.g., "openai", "fallback", "pipeline_failure", "moderation"
   topicId   String?
   termId    String?
   factId    String?
@@ -164,9 +169,9 @@ model MetricLog {
   createdAt DateTime @default(now())
 
   // Optional relations for better querying
-  topic     Topic?   @relation(fields: [topicId], references: [id])
-  term      Term?    @relation(fields: [termId], references: [id])
-  fact      Fact?    @relation(fields: [factId], references: [id])
+  topic Topic? @relation(fields: [topicId], references: [id])
+  term  Term?  @relation(fields: [termId], references: [id])
+  fact  Fact?  @relation(fields: [factId], references: [id])
 
   @@index([type])
   @@index([topicId])
@@ -176,16 +181,16 @@ model MetricLog {
 
 // New delivery tracking models
 model Delivery {
-  id           String        @id @default(uuid())
-  userId       String
-  termId       String
-  deliveredAt  DateTime      @default(now())
-  openedAt     DateTime?
-  action       DeliveryAction @default(NONE)
-  
-  user         User          @relation(fields: [userId], references: [id])
-  term         Term          @relation(fields: [termId], references: [id])
-  
+  id          String         @id @default(uuid())
+  userId      String
+  termId      String
+  deliveredAt DateTime       @default(now())
+  openedAt    DateTime?
+  action      DeliveryAction @default(NONE)
+
+  user User @relation(fields: [userId], references: [id])
+  term Term @relation(fields: [termId], references: [id])
+
   @@index([userId])
   @@index([deliveredAt])
 }
@@ -199,13 +204,37 @@ model Wordbank {
   lastReviewed DateTime?
   nextReview   DateTime?
   reviewCount  Int           @default(0)
-  
-  user         User          @relation(fields: [userId], references: [id])
-  term         Term          @relation(fields: [termId], references: [id])
-  
+  relevance    TermRelevance @default(RELATED)
+
+  user User @relation(fields: [userId], references: [id])
+  term Term @relation(fields: [termId], references: [id])
+
   @@unique([userId, termId])
   @@index([userId])
   @@index([nextReview])
+}
+
+model GenerationLog {
+  id           String   @id @default(uuid())
+  userId       String
+  topicId      String?
+  termId       String?
+  promptType   String
+  model        String
+  costEstimate Float?
+  success      Boolean  @default(true)
+  errorMessage String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  topic Topic? @relation(fields: [topicId], references: [id])
+  term  Term?  @relation(fields: [termId], references: [id])
+
+  @@index([userId])
+  @@index([topicId])
+  @@index([promptType])
+  @@index([createdAt])
 }
 
 enum DeliveryAction {
@@ -220,4 +249,9 @@ enum WordStatus {
   REVIEWING
   MASTERED
   ARCHIVED
+}
+
+enum TermRelevance {
+  RELATED
+  UNRELATED
 }

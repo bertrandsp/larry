@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { parseVocabularyFields } from '../utils/vocabularyUtils';
 
 export interface FirstDailyWord {
   id: string;
@@ -11,6 +12,20 @@ export interface FirstDailyWord {
   sourceUrl?: string;
   confidenceScore: number;
   topic: string;
+  
+  // 🔥 NEW: Rich vocabulary fields
+  synonyms: string[];
+  antonyms: string[];
+  relatedTerms: Array<{
+    term: string;
+    difference: string;
+  }>;
+  partOfSpeech?: string;
+  difficulty?: number;
+  etymology?: string;
+  pronunciation?: string;
+  tags: string[];
+  
   facts: Array<{
     id: string;
     fact: string;
@@ -81,7 +96,7 @@ export async function getFirstDailyWord(userId: string): Promise<FirstDailyWord 
     // Get topic IDs
     const topicIds = user.topics.map((ut: any) => ut.topicId);
 
-    // Find available terms from user's topics
+    // Find available terms from user's topics (prioritize recently created terms)
     const { data: availableTerms, error: termsError } = await supabase
       .from('Term')
       .select(`
@@ -90,7 +105,7 @@ export async function getFirstDailyWord(userId: string): Promise<FirstDailyWord 
       `)
       .in('topicId', topicIds)
       .eq('moderationStatus', 'approved')
-      .order('confidenceScore', { ascending: false })
+      .order('createdAt', { ascending: false })
       .limit(10);
 
     if (termsError || !availableTerms || availableTerms.length === 0) {
@@ -140,6 +155,9 @@ export async function getFirstDailyWord(userId: string): Promise<FirstDailyWord 
       .eq('topicId', selectedTerm.topicId)
       .limit(3);
 
+    // Parse rich vocabulary fields from JSON
+    const enrichedTerm = parseVocabularyFields(selectedTerm);
+
     const firstDailyWord: FirstDailyWord = {
       id: selectedTerm.id,
       term: selectedTerm.term,
@@ -147,6 +165,16 @@ export async function getFirstDailyWord(userId: string): Promise<FirstDailyWord 
       example: selectedTerm.example,
       category: selectedTerm.category || 'Vocabulary',
       complexityLevel: selectedTerm.complexityLevel || 'Intermediate',
+      
+      // 🔥 NEW: Rich vocabulary fields
+      synonyms: enrichedTerm.synonyms,
+      antonyms: enrichedTerm.antonyms,
+      relatedTerms: enrichedTerm.relatedTerms,
+      partOfSpeech: selectedTerm.partOfSpeech,
+      difficulty: selectedTerm.difficulty,
+      etymology: selectedTerm.etymology,
+      pronunciation: selectedTerm.pronunciation,
+      tags: enrichedTerm.tags,
       source: selectedTerm.source || 'AI Generated',
       sourceUrl: selectedTerm.sourceUrl,
       confidenceScore: selectedTerm.confidenceScore || 0.95,

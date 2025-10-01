@@ -1,6 +1,7 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { triggerSupabasePostOnboarding } from '../services/postOnboardingSupabaseService';
 
 dotenv.config();
 
@@ -110,6 +111,12 @@ router.post('/onboarding/complete', async (req, res) => {
 
     console.log('✅ Onboarding completed successfully for user:', userId);
     console.log('🎯 Ready to trigger first daily word delivery');
+
+    try {
+      await triggerSupabasePostOnboarding(userId);
+    } catch (generationError) {
+      console.error('❌ Failed to trigger Supabase post-onboarding generation:', generationError);
+    }
 
     res.json({
       success: true,

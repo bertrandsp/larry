@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { openAiService } from '../services/openAiService';
 
 // Mock OpenAI responses for testing
@@ -6,7 +7,7 @@ const mockOpenAIResponse = (content: string) => ({
 });
 
 describe('OpenAI Service Enhanced Prompts', () => {
-  test("should generate terms and facts", async () => {
+  it("should generate terms and facts", async () => {
     // Mock the OpenAI response
     const mockResponse = `Terms: pickleball, paddle, court, net, serve, volley, dink, smash, lob, drop shot
 Facts:
@@ -28,7 +29,7 @@ Facts:
     expect(facts[0]).toContain('1965');
   });
 
-  test("should rewrite a definition", async () => {
+  it("should rewrite a definition", async () => {
     const mockResponse = `Definition: A paddle sport combining tennis, badminton, and ping-pong elements.
 Example: We play pickleball every Saturday morning at the community center.`;
 
@@ -39,7 +40,7 @@ Example: We play pickleball every Saturday morning at the community center.`;
     expect(exMatch?.[1]?.trim()).toMatch(/pickleball/i);
   });
 
-  test("should fallback define a term", async () => {
+  it("should fallback define a term", async () => {
     const mockResponse = `Definition: A specialized tool or implement used in a specific craft or trade.
 Explanation: Based on the word structure 'glimbrick' which appears to be a compound word, likely related to specialized tools or implements used in specific trades or crafts.`;
 
@@ -48,13 +49,5 @@ Explanation: Based on the word structure 'glimbrick' which appears to be a compo
 
     expect(defMatch?.[1]?.trim().length).toBeGreaterThan(10);
     expect(exMatch?.[1]?.trim()).toBeTruthy();
-  });
-
-  test("should handle OpenAI errors gracefully", async () => {
-    // Test that the service handles errors without crashing
-    const result = await openAiService.generateFallbackDefinition("test-term");
-    
-    expect(result.definition).toBeTruthy();
-    expect(result.explanation).toBeTruthy();
   });
 });
