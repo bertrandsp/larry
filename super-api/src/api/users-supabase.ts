@@ -407,11 +407,11 @@ router.delete('/user/:userId', async (req, res) => {
 
     // Calculate anonymized metrics
     const totalTermsLearned = learningData?.length || 0;
-    const termsMastered = learningData?.filter(d => d.wordbank?.status === 'MASTERED').length || 0;
-    const termsStruggledWith = learningData?.filter(d => d.wordbank?.status === 'LEARNING' && d.wordbank?.bucket === 1).length || 0;
+    const termsMastered = learningData?.filter((d: any) => d.wordbank?.status === 'MASTERED').length || 0;
+    const termsStruggledWith = learningData?.filter((d: any) => d.wordbank?.status === 'LEARNING' && d.wordbank?.bucket === 1).length || 0;
     
     // Extract topic preferences (anonymized)
-    const topicPreferences = learningData?.map(d => d.wordbank?.term?.topic?.name).filter(Boolean) || [];
+    const topicPreferences = learningData?.map((d: any) => d.wordbank?.term?.topic?.name).filter(Boolean) || [];
     const uniqueTopics = [...new Set(topicPreferences)];
 
     // Calculate learning pattern

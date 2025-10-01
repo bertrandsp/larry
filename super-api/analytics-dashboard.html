@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Larry Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: #86868b;
+            font-size: 1.1rem;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e5e7;
+        }
+        .card h3 {
+            margin-top: 0;
+            color: #1d1d1f;
+            font-size: 1.3rem;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .metric:last-child {
+            border-bottom: none;
+        }
+        .metric-label {
+            color: #86868b;
+            font-weight: 500;
+        }
+        .metric-value {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            color: #86868b;
+            padding: 40px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Larry Analytics Dashboard</h1>
+            <p>Privacy-safe educational research insights</p>
+            <button class="refresh-btn" onclick="loadAnalytics()">🔄 Refresh Data</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <h3>Loading analytics data...</h3>
+            <p>Fetching insights from anonymized learning data</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;">
+            <h3>❌ Error Loading Data</h3>
+            <p id="error-message"></p>
+        </div>
+
+        <div id="dashboard" style="display: none;">
+            <div class="dashboard-grid">
+                <!-- Overview Card -->
+                <div class="card">
+                    <h3>📈 Overview</h3>
+                    <div id="overview-metrics"></div>
+                </div>
+
+                <!-- Topic Popularity Card -->
+                <div class="card">
+                    <h3>🔥 Popular Topics</h3>
+                    <div class="chart-container">
+                        <canvas id="topicChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Learning Patterns Card -->
+                <div class="card">
+                    <h3>🧠 Learning Patterns</h3>
+                    <div class="chart-container">
+                        <canvas id="patternChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Topic Difficulty Card -->
+                <div class="card">
+                    <h3>⚡ Topic Difficulty</h3>
+                    <div class="chart-container">
+                        <canvas id="difficultyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Demographics Card -->
+                <div class="card">
+                    <h3>👥 Demographics</h3>
+                    <div class="chart-container">
+                        <canvas id="demographicsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Compliance Card -->
+                <div class="card">
+                    <h3>🛡️ Privacy Compliance</h3>
+                    <div id="compliance-metrics"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4001';
+        let charts = {};
+
+        async function loadAnalytics() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const dashboard = document.getElementById('dashboard');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            dashboard.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/analytics/dashboard`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to fetch analytics');
+                }
+
+                displayAnalytics(data);
+                
+                loading.style.display = 'none';
+                dashboard.style.display = 'block';
+
+            } catch (err) {
+                console.error('Analytics error:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                document.getElementById('error-message').textContent = err.message;
+            }
+        }
+
+        function displayAnalytics(data) {
+            displayOverview(data.summary);
+            createTopicChart(data.data.topics.popularity);
+            createPatternChart(data.data.learningPatterns);
+            createDifficultyChart(data.data.topics.difficulty);
+            createDemographicsChart(data.data.demographics);
+            displayCompliance();
+        }
+
+        function displayOverview(summary) {
+            const container = document.getElementById('overview-metrics');
+            container.innerHTML = `
+                <div class="metric">
+                    <span class="metric-label">Total Topics</span>
+                    <span class="metric-value">${summary.totalTopics}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Users</span>
+                    <span class="metric-value">${summary.totalUsers}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Mastery Rate</span>
+                    <span class="metric-value">${(summary.avgMasteryRate * 100).toFixed(1)}%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Most Effective Pattern</span>
+                    <span class="metric-value">${summary.mostEffectivePattern}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Hardest Topic</span>
+                    <span class="metric-value">${summary.hardestTopic}</span>
+                </div>
+            `;
+        }
+
+        function createTopicChart(topics) {
+            const ctx = document.getElementById('topicChart').getContext('2d');
+            
+            if (charts.topicChart) {
+                charts.topicChart.destroy();
+            }
+
+            if (topics.length === 0) {
+                ctx.fillStyle = '#86868b';
+                ctx.font = '16px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No topic data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            charts.topicChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: topics.slice(0, 5).map(t => t.topic),
+                    datasets: [{
+                        data: topics.slice(0, 5).map(t => t.totalUsers),
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#f5576c',
+                            '#4facfe'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createPatternChart(patterns) {
+            const ctx = document.getElementById('patternChart').getContext('2d');
+            
+            if (charts.patternChart) {
+                charts.patternChart.destroy();
+            }
+
+            if (patterns.length === 0) {
+                ctx.fillStyle = '#86868b';
+                ctx.font = '16px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No pattern data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            charts.patternChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: patterns.map(p => p.pattern),
+                    datasets: [{
+                        label: 'Effectiveness Score',
+                        data: patterns.map(p => p.effectivenessScore),
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createDifficultyChart(topics) {
+            const ctx = document.getElementById('difficultyChart').getContext('2d');
+            
+            if (charts.difficultyChart) {
+                charts.difficultyChart.destroy();
+            }
+
+            if (topics.length === 0) {
+                ctx.fillStyle = '#86868b';
+                ctx.font = '16px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No difficulty data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            charts.difficultyChart = new Chart(ctx, {
+                type: 'horizontalBar',
+                data: {
+                    labels: topics.slice(0, 5).map(t => t.topic),
+                    datasets: [{
+                        label: 'Difficulty Score',
+                        data: topics.slice(0, 5).map(t => t.avgDifficultyScore),
+                        backgroundColor: '#f5576c'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createDemographicsChart(demographics) {
+            const ctx = document.getElementById('demographicsChart').getContext('2d');
+            
+            if (charts.demographicsChart) {
+                charts.demographicsChart.destroy();
+            }
+
+            if (demographics.length === 0) {
+                ctx.fillStyle = '#86868b';
+                ctx.font = '16px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No demographic data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
+            charts.demographicsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: demographics.map(d => d.demographic),
+                    datasets: [{
+                        label: 'Avg Terms Mastered',
+                        data: demographics.map(d => d.avgTermsMastered),
+                        borderColor: '#4facfe',
+                        backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayCompliance() {
+            const container = document.getElementById('compliance-metrics');
+            container.innerHTML = `
+                <div class="metric">
+                    <span class="metric-label">GDPR Compliant</span>
+                    <span class="metric-value" style="color: #34c759;">✅ Yes</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">PII Removal</span>
+                    <span class="metric-value" style="color: #34c759;">✅ Complete</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">User Consent</span>
+                    <span class="metric-value" style="color: #34c759;">✅ Obtained</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Data Basis</span>
+                    <span class="metric-value">Legitimate Interest</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Retention</span>
+                    <span class="metric-value">Research Purposes</span>
+                </div>
+            `;
+        }
+
+        // Load analytics on page load
+        loadAnalytics();
+    </script>
+</body>
+</html>

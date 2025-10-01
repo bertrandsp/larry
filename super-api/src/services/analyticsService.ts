@@ -42,6 +42,7 @@ export interface CohortAnalytics {
  */
 export async function getTopicPopularityAnalytics(): Promise<TopicAnalytics[]> {
   try {
+    if (!supabase) throw new Error('Supabase client not initialized');
     const { data, error } = await supabase
       .from('AnonymizedLearningData')
       .select(`
@@ -120,6 +121,7 @@ export async function getTopicPopularityAnalytics(): Promise<TopicAnalytics[]> {
  */
 export async function getLearningPatternAnalytics(): Promise<LearningPatternAnalytics[]> {
   try {
+    if (!supabase) throw new Error('Supabase client not initialized');
     const { data, error } = await supabase
       .from('AnonymizedLearningData')
       .select(`
@@ -179,6 +181,7 @@ export async function getLearningPatternAnalytics(): Promise<LearningPatternAnal
  */
 export async function getCohortAnalytics(): Promise<CohortAnalytics[]> {
   try {
+    if (!supabase) throw new Error('Supabase client not initialized');
     const { data, error } = await supabase
       .from('AnonymizedLearningData')
       .select(`
@@ -246,6 +249,7 @@ export async function getCohortAnalytics(): Promise<CohortAnalytics[]> {
  */
 export async function getTopicDifficultyAnalytics() {
   try {
+    if (!supabase) throw new Error('Supabase client not initialized');
     const { data, error } = await supabase
       .from('AnonymizedLearningData')
       .select(`
@@ -303,6 +307,7 @@ export async function getTopicDifficultyAnalytics() {
  */
 export async function getDemographicAnalytics() {
   try {
+    if (!supabase) throw new Error('Supabase client not initialized');
     const { data, error } = await supabase
       .from('AnonymizedLearningData')
       .select(`
