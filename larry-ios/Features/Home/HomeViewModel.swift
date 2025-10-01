@@ -15,7 +15,7 @@ class HomeViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published var dailyWords: ViewState<DailyWordsResponse> = .idle
-    @Published var firstDailyWord: ViewState<FirstDailyWordResponse> = .idle
+    @Published var firstDailyWord: ViewState<EnhancedFirstDailyWordResponse> = .idle
     @Published var isRefreshing = false
     
     // MARK: - Private Properties

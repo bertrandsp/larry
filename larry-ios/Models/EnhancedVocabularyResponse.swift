@@ -8,7 +8,7 @@
 import Foundation
 
 /// Response model for enhanced vocabulary API endpoints
-struct FirstDailyWordResponse: Codable {
+struct EnhancedFirstDailyWordResponse: Codable {
     let success: Bool
     let dailyWord: FirstDailyWord?
     let message: String?
@@ -26,15 +26,15 @@ struct FirstDailyWord: Codable, Identifiable {
     let sourceUrl: String?
     let confidenceScore: Double
     let topic: String
-    let facts: [Fact]
-    let delivery: DeliveryInfo
-    let wordbank: WordbankInfo
+    let facts: [VocabularyFact]
+    let delivery: VocabularyDeliveryInfo
+    let wordbank: VocabularyWordbankInfo
     let isFirstWord: Bool
     
     // Enhanced vocabulary fields
     let synonyms: [String]
     let antonyms: [String]
-    let relatedTerms: [RelatedTerm]
+    let relatedTerms: [VocabularyRelatedTerm]
     let partOfSpeech: String?
     let difficulty: Int?
     let etymology: String?
@@ -59,24 +59,24 @@ struct FirstDailyWord: Codable, Identifiable {
     }
 }
 
-struct Fact: Codable {
+struct VocabularyFact: Codable {
     let id: String
     let fact: String
     let category: String?
 }
 
-struct DeliveryInfo: Codable {
+struct VocabularyDeliveryInfo: Codable {
     let id: String
     let deliveredAt: String
 }
 
-struct WordbankInfo: Codable {
+struct VocabularyWordbankInfo: Codable {
     let id: String
     let bucket: Int
     let status: String
 }
 
-struct RelatedTerm: Codable {
+struct VocabularyRelatedTerm: Codable {
     let term: String
     let difference: String
 }
@@ -98,15 +98,15 @@ struct EnhancedDailyWord: Codable, Identifiable {
     let source: String?
     let confidenceScore: Double
     let topic: String
-    let facts: [Fact]
-    let delivery: DeliveryInfo
-    let wordbank: WordbankInfo
+    let facts: [VocabularyFact]
+    let delivery: VocabularyDeliveryInfo
+    let wordbank: VocabularyWordbankInfo
     let isReview: Bool
     
     // Enhanced vocabulary fields
     let synonyms: [String]
     let antonyms: [String]
-    let relatedTerms: [RelatedTerm]
+    let relatedTerms: [VocabularyRelatedTerm]
     let partOfSpeech: String?
     let difficulty: Int?
     let etymology: String?
@@ -152,16 +152,16 @@ extension FirstDailyWord {
         confidenceScore: 0.92,
         topic: "Blockchain Development",
         facts: [
-            Fact(id: "fact-1", fact: "Solidity was influenced by JavaScript, Python, and C++", category: "History"),
-            Fact(id: "fact-2", fact: "First version was released in 2014", category: "Timeline")
+            VocabularyFact(id: "fact-1", fact: "Solidity was influenced by JavaScript, Python, and C++", category: "History"),
+            VocabularyFact(id: "fact-2", fact: "First version was released in 2014", category: "Timeline")
         ],
-        delivery: DeliveryInfo(id: "delivery-1", deliveredAt: "2025-10-01T10:00:00Z"),
-        wordbank: WordbankInfo(id: "wordbank-1", bucket: 1, status: "LEARNING"),
+        delivery: VocabularyDeliveryInfo(id: "delivery-1", deliveredAt: "2025-10-01T10:00:00Z"),
+        wordbank: VocabularyWordbankInfo(id: "wordbank-1", bucket: 1, status: "LEARNING"),
         isFirstWord: true,
         synonyms: ["Ethereum language", "smart contract language"],
         antonyms: ["Bitcoin Script", "non-programmable"],
         relatedTerms: [
-            RelatedTerm(term: "Vyper", difference: "Another Ethereum smart contract language, designed to be more secure")
+            VocabularyRelatedTerm(term: "Vyper", difference: "Another Ethereum smart contract language, designed to be more secure")
         ],
         partOfSpeech: "noun",
         difficulty: 2,
@@ -183,16 +183,16 @@ extension EnhancedDailyWord {
         confidenceScore: 0.89,
         topic: "Nature",
         facts: [
-            Fact(id: "fact-1", fact: "From Greek ephēmeros, meaning 'lasting only a day'", category: "Etymology")
+            VocabularyFact(id: "fact-1", fact: "From Greek ephēmeros, meaning 'lasting only a day'", category: "Etymology")
         ],
-        delivery: DeliveryInfo(id: "delivery-2", deliveredAt: "2025-10-01T09:00:00Z"),
-        wordbank: WordbankInfo(id: "wordbank-2", bucket: 2, status: "LEARNING"),
+        delivery: VocabularyDeliveryInfo(id: "delivery-2", deliveredAt: "2025-10-01T09:00:00Z"),
+        wordbank: VocabularyWordbankInfo(id: "wordbank-2", bucket: 2, status: "LEARNING"),
         isReview: false,
         synonyms: ["transient", "fleeting", "temporary"],
         antonyms: ["permanent", "enduring", "lasting"],
         relatedTerms: [
-            RelatedTerm(term: "transitory", difference: "Similar meaning but more formal"),
-            RelatedTerm(term: "momentary", difference: "Emphasizes very brief duration")
+            VocabularyRelatedTerm(term: "transitory", difference: "Similar meaning but more formal"),
+            VocabularyRelatedTerm(term: "momentary", difference: "Emphasizes very brief duration")
         ],
         partOfSpeech: "adjective",
         difficulty: 3,

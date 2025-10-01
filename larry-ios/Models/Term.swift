@@ -175,12 +175,6 @@ struct UserTermProgress: Codable {
     }
 }
 
-// MARK: - Related Term Model
-
-struct RelatedTerm: Codable {
-    let term: String
-    let difference: String
-}
 
 // MARK: - Preview Data
 extension Term {
@@ -196,8 +190,8 @@ extension Term {
         synonyms: ["chance", "fortune", "luck"],
         antonyms: ["misfortune", "bad luck"],
         relatedTerms: [
-            RelatedTerm(term: "fortuitous", difference: "More formal synonym meaning happening by chance"),
-            RelatedTerm(term: "providential", difference: "Implies divine intervention rather than pure chance")
+            VocabularyRelatedTerm(term: "fortuitous", difference: "More formal synonym meaning happening by chance"),
+            VocabularyRelatedTerm(term: "providential", difference: "Implies divine intervention rather than pure chance")
         ],
         tags: ["literature", "philosophy"],
         category: "Vocabulary",
@@ -224,8 +218,8 @@ extension Term {
             synonyms: ["transient", "fleeting", "temporary"],
             antonyms: ["permanent", "enduring", "lasting"],
             relatedTerms: [
-                RelatedTerm(term: "transitory", difference: "Similar meaning but more formal"),
-                RelatedTerm(term: "momentary", difference: "Emphasizes very brief duration")
+                VocabularyRelatedTerm(term: "transitory", difference: "Similar meaning but more formal"),
+                VocabularyRelatedTerm(term: "momentary", difference: "Emphasizes very brief duration")
             ],
             tags: ["nature", "philosophy"],
             category: "Vocabulary",

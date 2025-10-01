@@ -184,13 +184,13 @@ class APIService: ObservableObject {
     // MARK: - First Daily Word & Delivery Tracking
     
     /// Get the first daily word for users who just completed onboarding
-    func getFirstDailyWord(userId: String) async throws -> FirstDailyWordResponse {
+    func getFirstDailyWord(userId: String) async throws -> EnhancedFirstDailyWordResponse {
         let request = APIRequest(
             method: .GET,
             path: "/first-daily?userId=\(userId)"
         )
         
-        return try await send(request, responseType: FirstDailyWordResponse.self)
+        return try await send(request, responseType: EnhancedFirstDailyWordResponse.self)
     }
     
     /// Track user action on a delivered word
