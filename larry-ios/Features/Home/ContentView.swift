@@ -281,7 +281,7 @@ private struct DailyWordCard: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text(dailyWord.term.partOfSpeech.displayName)
+                    Text(dailyWord.term.partOfSpeechEnum.displayName)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
