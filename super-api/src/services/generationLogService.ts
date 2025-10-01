@@ -1,4 +1,5 @@
 import { prisma } from "../utils/prisma";
+import { supabase } from "../config/supabase";
 
 type PromptType =
   | "GENERATION"
@@ -20,19 +21,49 @@ type GenerationLogInput = {
 
 export async function logGeneration(data: GenerationLogInput): Promise<void> {
   try {
-    await prisma.generationLog.create({
-      data: {
-        userId: data.userId,
-        topicId: data.topicId,
-        termId: data.termId,
-        promptType: data.promptType,
-        model: data.model,
-        costEstimate: data.costEstimate,
-        success: data.success,
-        errorMessage: data.errorMessage,
-        metadata: (data.metadata ?? {}) as any,
-      },
-    });
+    // Try Prisma first (for Prisma-based environments)
+    try {
+      await prisma.generationLog.create({
+        data: {
+          userId: data.userId,
+          topicId: data.topicId,
+          termId: data.termId,
+          promptType: data.promptType,
+          model: data.model,
+          costEstimate: data.costEstimate,
+          success: data.success,
+          errorMessage: data.errorMessage,
+          metadata: (data.metadata ?? {}) as any,
+        },
+      });
+      return;
+    } catch (prismaError) {
+      console.log("Prisma logging failed, trying Supabase...");
+    }
+
+    // Fallback to Supabase logging
+    if (supabase) {
+      const { error } = await supabase
+        .from('GenerationLog')
+        .insert({
+          id: `gl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          userId: data.userId,
+          topicId: data.topicId,
+          termId: data.termId,
+          promptType: data.promptType,
+          model: data.model,
+          costEstimate: data.costEstimate,
+          success: data.success,
+          errorMessage: data.errorMessage,
+          metadata: data.metadata ?? {},
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error("Supabase logging failed:", error);
+      }
+    }
   } catch (error) {
     console.error("Failed to log generation event", error);
   }

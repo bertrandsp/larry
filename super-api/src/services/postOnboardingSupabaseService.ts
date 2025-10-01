@@ -311,8 +311,6 @@ async function scheduleFirstSupabaseTerms(
         reviewCount: 0,
         relevance: "RELATED",
         nextReview: addDays(new Date(), 1).toISOString(),
-        createdAt: nowIso,
-        updatedAt: nowIso,
       })
       .select("id")
       .single();
