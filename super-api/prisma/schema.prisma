@@ -50,6 +50,7 @@ model User {
   deliveries     Delivery[]
   wordbank       Wordbank[]
   generationLogs GenerationLog[]
+  createdTopics  Topic[] // Topics created by this user
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -66,6 +67,7 @@ model Topic {
   maxTerms        Int             @default(10)
   canonicalSetId  String?
   canonicalSet    CanonicalSet?   @relation(fields: [canonicalSetId], references: [id])
+  createdBy       User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   userTopics      UserTopic[]
   terms           Term[]
   facts           Fact[]
@@ -77,7 +79,7 @@ model Topic {
 
 model UserTopic {
   id      String  @id @default(uuid())
-  user    User    @relation(fields: [userId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  String
   topic   Topic   @relation(fields: [topicId], references: [id])
   topicId String
@@ -206,7 +208,7 @@ model Wordbank {
   reviewCount  Int           @default(0)
   relevance    TermRelevance @default(RELATED)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   term Term @relation(fields: [termId], references: [id])
 
   @@unique([userId, termId])
@@ -227,7 +229,7 @@ model GenerationLog {
   metadata     Json     @default("{}")
   createdAt    DateTime @default(now())
 
-  user  User   @relation(fields: [userId], references: [id])
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   topic Topic? @relation(fields: [topicId], references: [id])
   term  Term?  @relation(fields: [termId], references: [id])
 
@@ -235,6 +237,42 @@ model GenerationLog {
   @@index([topicId])
   @@index([promptType])
   @@index([createdAt])
+}
+
+model AnonymizedLearningData {
+  id                    String   @id @default(uuid())
+  
+  // Demographics (anonymized)
+  userAgeBracket        String?  // "18-25", "26-35", etc.
+  learningLevel         String?
+  professionCategory    String?  // Generic category, not specific profession
+  preferredDifficulty   String?
+  
+  // Learning behavior
+  onboardingCompleted   Boolean
+  dailyWordGoal         Int
+  totalTermsLearned     Int
+  averageLearningSpeed  Int?     // days per term
+  streakAchieved        Int
+  topicPreferences      String[] // Array of topic names
+  
+  // Outcomes
+  termsMastered         Int
+  termsStruggledWith    Int
+  mostEffectiveTopics   String[]
+  learningPattern       String   // "consistent", "burst", "gradual"
+  
+  // Timestamps
+  daysActive            Int
+  accountCreatedAt      DateTime
+  anonymizedAt          DateTime @default(now())
+  
+  // Research metadata
+  cohortGroup           String   // "Q1-2024", "mobile_users"
+  learningStyle         String?  // Inferred from behavior
+  successMetrics        Json?    // Additional metrics
+  
+  @@map("AnonymizedLearningData")
 }
 
 enum DeliveryAction {

@@ -364,4 +364,139 @@ router.get('/wordbank', async (req, res) => {
   }
 });
 
+// DELETE /user/:userId - Delete user with data anonymization
+router.delete('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!supabase) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+
+    // First, let's check if user exists
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from('User')
+      .select('id, email, created_at, learning_level, preferred_difficulty, daily_word_goal, daily_word_streak, onboarding_completed')
+      .eq('id', userId)
+      .single();
+
+    if (userCheckError || !existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Extract learning data for anonymization before deletion
+    const { data: learningData, error: learningError } = await supabase
+      .from('Delivery')
+      .select(`
+        term_id,
+        delivered_at,
+        wordbank:Wordbank!inner(
+          status,
+          bucket,
+          term:Term(
+            topic:Topic(name)
+          )
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (learningError) {
+      console.error('Error fetching learning data:', learningError);
+      // Continue with deletion even if learning data fetch fails
+    }
+
+    // Calculate anonymized metrics
+    const totalTermsLearned = learningData?.length || 0;
+    const termsMastered = learningData?.filter(d => d.wordbank?.status === 'MASTERED').length || 0;
+    const termsStruggledWith = learningData?.filter(d => d.wordbank?.status === 'LEARNING' && d.wordbank?.bucket === 1).length || 0;
+    
+    // Extract topic preferences (anonymized)
+    const topicPreferences = learningData?.map(d => d.wordbank?.term?.topic?.name).filter(Boolean) || [];
+    const uniqueTopics = [...new Set(topicPreferences)];
+
+    // Calculate learning pattern
+    const daysActive = Math.ceil((Date.now() - new Date(existingUser.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    const avgDaysPerTerm = daysActive > 0 ? Math.round(daysActive / Math.max(totalTermsLearned, 1)) : 0;
+    
+    let learningPattern = 'gradual';
+    if (avgDaysPerTerm < 5) {
+      learningPattern = 'burst';
+    } else if (totalTermsLearned > daysActive * 0.7) {
+      learningPattern = 'consistent';
+    }
+
+    // Calculate age bracket (using account creation as proxy for user engagement level)
+    const accountAge = Math.floor((Date.now() - new Date(existingUser.created_at).getTime()) / (1000 * 60 * 60 * 24 * 365));
+    let ageBracket = 'unknown';
+    if (accountAge < 25) ageBracket = '18-25';
+    else if (accountAge < 35) ageBracket = '26-35';
+    else if (accountAge < 45) ageBracket = '36-45';
+    else if (accountAge < 55) ageBracket = '46-55';
+    else ageBracket = '55+';
+
+    // Insert anonymized data
+    const { error: anonymizeError } = await supabase
+      .from('AnonymizedLearningData')
+      .insert({
+        user_age_bracket: ageBracket,
+        learning_level: existingUser.learning_level,
+        profession_category: 'Anonymized', // Don't store actual profession
+        preferred_difficulty: existingUser.preferred_difficulty,
+        onboarding_completed: existingUser.onboarding_completed,
+        daily_word_goal: existingUser.daily_word_goal,
+        total_terms_learned: totalTermsLearned,
+        average_learning_speed: avgDaysPerTerm,
+        streak_achieved: existingUser.daily_word_streak || 0,
+        topic_preferences: uniqueTopics,
+        terms_mastered: termsMastered,
+        terms_struggled_with: termsStruggledWith,
+        most_effective_topics: uniqueTopics.slice(0, 3), // Top 3 topics
+        learning_pattern: learningPattern,
+        days_active: daysActive,
+        account_created_at: existingUser.created_at,
+        cohort_group: `Q${Math.ceil((new Date(existingUser.created_at).getMonth() + 1) / 3)}-${new Date(existingUser.created_at).getFullYear()}`,
+        learning_style: learningPattern,
+        success_metrics: {
+          learning_efficiency: totalTermsLearned / Math.max(daysActive, 1),
+          mastery_rate: totalTermsLearned > 0 ? termsMastered / totalTermsLearned : 0,
+          engagement_score: existingUser.daily_word_streak || 0
+        }
+      });
+
+    if (anonymizeError) {
+      console.error('Error anonymizing data:', anonymizeError);
+      // Continue with deletion even if anonymization fails
+    }
+
+    // Now delete the user (this will cascade to related tables due to our constraints)
+    const { error: deleteError } = await supabase
+      .from('User')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteError) {
+      console.error('Error deleting user:', deleteError);
+      return res.status(500).json({ 
+        error: 'Failed to delete user account',
+        details: deleteError.message 
+      });
+    }
+
+    console.log(`✅ User ${userId} deleted and learning data anonymized`);
+    
+    res.json({ 
+      success: true, 
+      message: 'User account deleted and learning data anonymized for research purposes',
+      anonymized: !anonymizeError
+    });
+
+  } catch (error: any) {
+    console.error('Error in user deletion:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete user account',
+      details: error.message 
+    });
+  }
+});
+
 export default router;
