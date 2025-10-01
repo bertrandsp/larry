@@ -151,7 +151,7 @@ struct EnhancedDailyWordCard: View {
                 RelatedTermsSection(
                     title: "Related Terms",
                     icon: "link.circle.fill",
-                    color: .blue,
+                    color: Color.blue,
                     relatedTerms: dailyWord.relatedTerms,
                     isExpanded: $showingRelatedTerms
                 )
@@ -336,7 +336,7 @@ private struct RelatedTermsSection: View {
     let title: String
     let icon: String
     let color: Color
-    let relatedTerms: [RelatedTerm]
+    let relatedTerms: [VocabularyRelatedTerm]
     @Binding var isExpanded: Bool
     
     var body: some View {
