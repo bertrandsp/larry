@@ -85,7 +85,7 @@ struct FirstDailyWordResponse: Codable {
 
 // MARK: - Enhanced Daily Word with Delivery Tracking
 
-struct EnhancedDailyWord: Codable {
+struct WordbankEnhancedDailyWord: Codable {
     let id: String
     let term: String
     let definition: String
@@ -96,23 +96,23 @@ struct EnhancedDailyWord: Codable {
     let sourceUrl: String?
     let confidenceScore: Double
     let topic: String
-    let facts: [Fact]
-    let delivery: DeliveryInfo?
-    let wordbank: WordbankInfo?
+    let facts: [WordbankFact]
+    let delivery: WordbankDeliveryInfo?
+    let wordbank: WordbankWordbankInfo?
     let isFirstWord: Bool?
     
-    struct DeliveryInfo: Codable {
+    struct WordbankDeliveryInfo: Codable {
         let id: String
         let deliveredAt: Date
     }
     
-    struct WordbankInfo: Codable {
+    struct WordbankWordbankInfo: Codable {
         let id: String
         let bucket: Int
         let status: String
     }
     
-    struct Fact: Codable {
+    struct WordbankFact: Codable {
         let id: String
         let fact: String
         let category: String
