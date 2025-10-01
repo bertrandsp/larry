@@ -19,7 +19,7 @@ struct Term: Codable, Identifiable {
     let etymology: String?
     let synonyms: [String]
     let antonyms: [String]
-    let relatedTerms: [RelatedTerm] // Enhanced to include difference explanations
+    let relatedTerms: [VocabularyRelatedTerm] // Enhanced to include difference explanations
     let tags: [String] // Added tags field
     let category: String?
     let complexityLevel: String?

@@ -196,7 +196,7 @@ class HomeViewModel: ObservableObject {
             // Use mock data in debug mode if API fails
             #if DEBUG
             if error is NetworkError {
-                firstDailyWord.setSuccess(FirstDailyWordResponse(
+                firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
                     success: true,
                     dailyWord: FirstDailyWord.previewData,
                     message: "Mock data for development"
