@@ -364,8 +364,8 @@ router.get('/wordbank', async (req, res) => {
   }
 });
 
-// DELETE /user/:userId/delete - Delete user with data anonymization
-router.delete('/user/:userId/delete', async (req, res) => {
+// DELETE /:userId/delete - Delete user with data anonymization
+router.delete('/:userId/delete', async (req, res) => {
   try {
     const { userId } = req.params;
     
@@ -410,8 +410,19 @@ router.delete('/user/:userId/delete', async (req, res) => {
     const termsMastered = wordbankData?.filter((w: any) => w.status === 'MASTERED').length || 0;
     const termsStruggledWith = wordbankData?.filter((w: any) => w.status === 'LEARNING' && w.bucket === 1).length || 0;
     
-    // Extract topic preferences (anonymized) - simplified for now
-    const uniqueTopics = ['General Vocabulary']; // Default topic since we can't easily get topic names
+    // Extract topic preferences from UserTopic table
+    const { data: userTopics, error: userTopicsError } = await supabase
+      .from('UserTopic')
+      .select(`
+        topicId,
+        topic:Topic(name)
+      `)
+      .eq('userId', userId);
+    
+    let uniqueTopics = ['General Vocabulary']; // Default fallback
+    if (!userTopicsError && userTopics && userTopics.length > 0) {
+      uniqueTopics = userTopics.map((ut: any) => ut.topic?.name || 'Unknown Topic').filter(Boolean);
+    }
 
     // Calculate learning pattern
     const daysActive = Math.ceil((Date.now() - new Date(existingUser.createdAt).getTime()) / (1000 * 60 * 60 * 24));

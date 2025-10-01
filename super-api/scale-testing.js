@@ -114,6 +114,15 @@ async function createUser(profile) {
       })
     });
     
+    // Select topics
+    console.log(`📋 Selecting topics for ${profile.email}...`);
+    const topicIds = ['topic-blockchain', 'topic-ai', 'topic-startups'];
+    await fetch(`${API_BASE}/onboarding/topics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader },
+      body: JSON.stringify({ topicIds })
+    });
+    
     // Complete onboarding
     await fetch(`${API_BASE}/onboarding/complete`, {
       method: 'POST',
