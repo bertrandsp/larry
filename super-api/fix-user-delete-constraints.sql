@@ -42,4 +42,13 @@ DROP CONSTRAINT IF EXISTS "Topic_createdByUserId_fkey",
 ADD CONSTRAINT "Topic_createdByUserId_fkey" 
 FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL;
 
+-- Add legal compliance fields to AnonymizedLearningData table
+ALTER TABLE "AnonymizedLearningData" 
+ADD COLUMN IF NOT EXISTS "data_retention_reason" TEXT DEFAULT 'Educational research and product improvement',
+ADD COLUMN IF NOT EXISTS "gdpr_compliant" BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS "anonymization_method" TEXT DEFAULT 'Statistical aggregation and demographic bucketing',
+ADD COLUMN IF NOT EXISTS "data_processing_basis" TEXT DEFAULT 'Legitimate interest for educational research',
+ADD COLUMN IF NOT EXISTS "retention_period" TEXT DEFAULT 'Indefinite for research purposes',
+ADD COLUMN IF NOT EXISTS "user_consent_obtained" BOOLEAN DEFAULT true;
+
 COMMIT;

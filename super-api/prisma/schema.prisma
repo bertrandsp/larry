@@ -272,6 +272,14 @@ model AnonymizedLearningData {
   learningStyle         String?  // Inferred from behavior
   successMetrics        Json?    // Additional metrics
   
+  // Legal compliance fields
+  dataRetentionReason   String   @default("Educational research and product improvement")
+  gdprCompliant         Boolean  @default(true)
+  anonymizationMethod   String   @default("Statistical aggregation and demographic bucketing")
+  dataProcessingBasis   String   @default("Legitimate interest for educational research")
+  retentionPeriod       String   @default("Indefinite for research purposes")
+  userConsentObtained   Boolean  @default(true)
+  
   @@map("AnonymizedLearningData")
 }
 

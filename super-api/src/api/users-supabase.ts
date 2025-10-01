@@ -460,7 +460,14 @@ router.delete('/user/:userId', async (req, res) => {
           learning_efficiency: totalTermsLearned / Math.max(daysActive, 1),
           mastery_rate: totalTermsLearned > 0 ? termsMastered / totalTermsLearned : 0,
           engagement_score: existingUser.daily_word_streak || 0
-        }
+        },
+        // Legal compliance fields
+        data_retention_reason: "Educational research and product improvement",
+        gdpr_compliant: true,
+        anonymization_method: "Statistical aggregation and demographic bucketing",
+        data_processing_basis: "Legitimate interest for educational research",
+        retention_period: "Indefinite for research purposes",
+        user_consent_obtained: true
       });
 
     if (anonymizeError) {

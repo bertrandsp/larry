@@ -8,6 +8,7 @@ import onboardingRoutes from './api/onboarding-supabase';
 import onboardingStepsRoutes from './api/onboarding-steps-supabase';
 import firstDailyRoutes from './api/first-daily-supabase';
 import userDashboardRoutes from './api/user-dashboard';
+import analyticsRoutes from './api/analytics';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/', onboardingRoutes);
 app.use('/', onboardingStepsRoutes);
 app.use('/', firstDailyRoutes);
 app.use('/', userDashboardRoutes);
+app.use('/', analyticsRoutes);
 
 // Start server
 app.listen(PORT, () => {
