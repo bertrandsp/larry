@@ -522,31 +522,31 @@ class OnboardingViewModel: ObservableObject {
         do {
             let response = try await APIService.shared.getFirstDailyWord(userId: userId)
             
-            if response.generating == true {
-                // Word is still being generated, show loading state
-                #if DEBUG
-                print("🚀 First word is being generated, estimated time: \(response.estimatedTime ?? "unknown")")
-                #endif
-                
-                // Wait and retry
-                if let retryAfter = response.retryAfter {
-                    try await Task.sleep(nanoseconds: UInt64(retryAfter) * 1_000_000_000)
-                    await prepareFirstDailyWord(userId: userId) // Retry
-                }
-            } else if response.success && response.firstVocabGenerated == true {
+            if response.success && response.dailyWord != nil {
                 // First word is ready!
                 firstWordReady = true
                 
                 #if DEBUG
                 print("✅ First daily word is ready!")
                 #endif
-            } else if let redirect = response.redirect {
-                // User already has vocab generated, redirect to regular flow
-                firstWordReady = true
-                
+            } else if response.success && response.dailyWord == nil {
+                // Word is still being generated, show loading state
                 #if DEBUG
-                print("ℹ️ User already has vocab, redirecting to: \(redirect)")
+                print("🚀 First word is being generated, waiting...")
                 #endif
+                
+                // Wait and retry after 5 seconds
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                await prepareFirstDailyWord(userId: userId) // Retry
+            } else {
+                // Error or no success
+                #if DEBUG
+                print("ℹ️ First daily word not ready yet, waiting...")
+                #endif
+                
+                // Wait and retry after 5 seconds
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                await prepareFirstDailyWord(userId: userId) // Retry
             }
             
         } catch {
