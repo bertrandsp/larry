@@ -17,6 +17,12 @@ struct TopicManagementView: View {
     init() {
         // Initialize with the current user ID from AuthManager
         let userId = AuthManager.shared.currentUser?.id ?? "default-user"
+        
+        #if DEBUG
+        print("🔍 TopicManagementView: AuthManager.shared.currentUser?.id = \(AuthManager.shared.currentUser?.id ?? "nil")")
+        print("🔍 TopicManagementView: Using userId = \(userId)")
+        #endif
+        
         self._viewModel = StateObject(wrappedValue: TopicManagementViewModel(userId: userId))
     }
     

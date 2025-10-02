@@ -30,6 +30,10 @@ class TopicManagementViewModel: ObservableObject {
     nonisolated init(apiService: APIService = APIService.shared, userId: String = "default-user") {
         self.apiService = apiService
         self.userId = userId
+        
+        #if DEBUG
+        print("🔍 TopicManagementViewModel initialized with userId: \(userId)")
+        #endif
     }
     
     // MARK: - Public Methods
