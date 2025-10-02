@@ -60,7 +60,7 @@ struct VerticalCardScrollView: View {
     private func handleSwipeGesture(
         translation: CGFloat,
         velocity: CGFloat,
-        proxy: ScrollViewReader,
+        proxy: ScrollViewReader<Int>,
         cardHeight: CGFloat
     ) {
         guard !isSnapping else { return }
@@ -83,7 +83,7 @@ struct VerticalCardScrollView: View {
         snapToCard(index: targetIndex, proxy: proxy)
     }
     
-    private func snapToCard(index: Int, proxy: ScrollViewReader) {
+    private func snapToCard(index: Int, proxy: ScrollViewReader<Int>) {
         guard index != currentIndex else { return }
         
         isSnapping = true
