@@ -35,7 +35,7 @@ struct VerticalCardScrollView: View {
                         .onEnded { value in
                             handleSwipeGesture(
                                 translation: value.translation.height,
-                                velocity: value.velocity.y,
+                                velocity: value.velocity.height,
                                 proxy: proxy,
                                 cardHeight: cardHeight
                             )
