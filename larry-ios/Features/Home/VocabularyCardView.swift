@@ -26,7 +26,6 @@ struct VocabularyCardView: View {
             }
         }
         .frame(height: cardHeight)
-        .clipped()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(card.term), \(card.partOfSpeech), \(card.definition)")
         .accessibilityHint("Swipe up for next word, swipe down for previous word")

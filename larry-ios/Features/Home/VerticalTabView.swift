@@ -47,6 +47,7 @@ struct VerticalTabView<Content: View>: View {
                     }
                     .scrollDisabled(scrollMode == .snapToPage || scrollMode == .progressive)
                     .offset(y: scrollMode == .progressive ? dragOffset : 0)
+                    .zIndex(1) // Ensure cards are above other content
                     .onAppear {
                         // Scroll to the current index on appear
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
