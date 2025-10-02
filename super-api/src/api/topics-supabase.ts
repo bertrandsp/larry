@@ -120,8 +120,6 @@ router.get('/user/:userId/topics', async (req, res) => {
         topicId,
         weight,
         enabled,
-        createdAt,
-        updatedAt,
         topic:Topic(
           id,
           name,
@@ -131,7 +129,7 @@ router.get('/user/:userId/topics', async (req, res) => {
         )
       `)
       .eq('userId', userId)
-      .order('createdAt', { ascending: true });
+      .order('id', { ascending: true });
 
     if (topicsError) {
       console.error('Error fetching user topics:', topicsError);
@@ -150,9 +148,7 @@ router.get('/user/:userId/topics', async (req, res) => {
         weight: ut.weight,
         enabled: ut.enabled,
         termCount: terms.length || (topic?.terms as any)?.count || 0,
-        category: 'other', // Default category
-        createdAt: ut.createdAt,
-        updatedAt: ut.updatedAt
+        category: 'other' // Default category
       };
     });
 
@@ -226,18 +222,14 @@ router.post('/user/:userId/topics/add', async (req, res) => {
         userId,
         topicId,
         weight,
-        enabled: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        enabled: true
       })
       .select(`
         id,
         topicId,
         userId,
         weight,
-        enabled,
-        createdAt,
-        updatedAt
+        enabled
       `)
       .single();
 
@@ -266,9 +258,7 @@ router.post('/user/:userId/topics/add', async (req, res) => {
           description: topic.description,
           category: 'other', // Default category
           termCount: termCount || 0
-        },
-        createdAt: userTopic.createdAt,
-        updatedAt: userTopic.updatedAt
+        }
       }
     });
   } catch (error: any) {
@@ -294,8 +284,7 @@ router.put('/user/topics/:userTopicId', async (req, res) => {
     const { data: userTopic, error: updateError } = await supabase
       .from('UserTopic')
       .update({
-        weight,
-        updatedAt: new Date().toISOString()
+        weight
       })
       .eq('id', userTopicId)
       .select(`
@@ -359,8 +348,7 @@ router.put('/user/topics/:userTopicId/toggle', async (req, res) => {
     const { data: userTopic, error: updateError } = await supabase
       .from('UserTopic')
       .update({
-        enabled: !currentTopic.enabled,
-        updatedAt: new Date().toISOString()
+        enabled: !currentTopic.enabled
       })
       .eq('id', userTopicId)
       .select(`
