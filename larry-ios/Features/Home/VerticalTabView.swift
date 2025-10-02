@@ -103,16 +103,16 @@ struct VerticalTabView<Content: View>: View {
         let translation = value.translation.height
         let maxDrag = screenHeight * 0.8 // Allow dragging up to 80% of screen height
         
-        // Apply boundary checks
+        // Apply boundary checks with more restrictive clamping
         var clampedTranslation = translation
         
         // If on first card, don't allow dragging down (positive translation)
         if currentIndex == 0 && translation > 0 {
-            clampedTranslation = max(0, min(maxDrag, translation))
+            clampedTranslation = max(0, min(maxDrag * 0.3, translation)) // More restrictive
         }
         // If on last card, don't allow dragging up (negative translation)
         else if currentIndex >= cardCount - 1 && translation < 0 {
-            clampedTranslation = max(-maxDrag, min(0, translation))
+            clampedTranslation = max(-maxDrag * 0.3, min(0, translation)) // More restrictive
         }
         // Normal case - allow full range
         else {
@@ -158,9 +158,11 @@ struct VerticalTabView<Content: View>: View {
                 scrollTo(currentIndex)
             }
         } else {
-            // Snap back to current card
+            // Snap back to current card - ensure we're properly aligned
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 dragOffset = 0
+                // Force scroll to current index to ensure proper alignment
+                scrollTo(currentIndex)
             }
         }
     }
