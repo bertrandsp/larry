@@ -27,17 +27,36 @@ struct TopicManagementView: View {
     }
     
     var body: some View {
+        #if DEBUG
+        let _ = print("🔍 TopicManagementView: body computed - viewModel.state = \(viewModel.state)")
+        #endif
+        
         NavigationView {
             Group {
                 switch viewModel.state {
                 case .idle:
+                    #if DEBUG
+                    let _ = print("🔍 TopicManagementView: Showing .idle state (EmptyView)")
+                    #endif
                     EmptyView()
                 case .loading:
+                    #if DEBUG
+                    let _ = print("🔍 TopicManagementView: Showing .loading state (TopicLoadingView)")
+                    #endif
                     TopicLoadingView()
                 case .loaded:
+                    #if DEBUG
+                    let _ = print("🔍 TopicManagementView: Showing .loaded state - userTopics: \(viewModel.userTopics.count), availableTopics: \(viewModel.availableTopics.count)")
+                    #endif
                     if viewModel.userTopics.isEmpty && viewModel.availableTopics.isEmpty {
+                        #if DEBUG
+                        let _ = print("🔍 TopicManagementView: Showing EmptyTopicsView (no topics)")
+                        #endif
                         EmptyTopicsView()
                     } else {
+                        #if DEBUG
+                        let _ = print("🔍 TopicManagementView: Showing LoadedContentView (has topics)")
+                        #endif
                         LoadedContentView(
                             viewModel: viewModel,
                             showingAddTopicSheet: $showingAddTopicSheet,

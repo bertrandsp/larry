@@ -16,7 +16,7 @@ class TopicManagementViewModel: ObservableObject {
     
     @Published var userTopics: [UserTopic] = []
     @Published var availableTopics: [AvailableTopic] = []
-    @Published var state: TopicManagementState = .idle
+    @Published var state: TopicManagementState = .loading
     @Published var errorMessage: String?
     
     // MARK: - Private Properties
