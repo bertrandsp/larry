@@ -60,7 +60,7 @@ struct VerticalCardScrollView: View {
     private func handleSwipeGesture(
         translation: CGFloat,
         velocity: CGFloat,
-        proxy: ScrollViewReader,
+        proxy: ScrollViewReader<Int>,
         cardHeight: CGFloat
     ) {
         guard !isSnapping else { return }
@@ -83,14 +83,14 @@ struct VerticalCardScrollView: View {
         snapToCard(index: targetIndex, proxy: proxy)
     }
     
-    private func snapToCard(index: Int, proxy: ScrollViewReader) {
+    private func snapToCard(index: Int, proxy: ScrollViewReader<Int>) {
         guard index != currentIndex else { return }
         
         isSnapping = true
         dragOffset = 0
         
         withAnimation(.easeOut(duration: 0.3)) {
-            proxy.scrollTo(index, anchor: .top)
+            proxy.scrollTo(index, anchor: UnitPoint.top)
             currentIndex = index
         }
         
@@ -126,7 +126,7 @@ class VerticalCardViewModel: ObservableObject {
         hasLoadedInitial = true
         
         Task {
-            await loadMoreCards()
+            loadMoreCards()
         }
     }
     
@@ -134,7 +134,7 @@ class VerticalCardViewModel: ObservableObject {
         // Load more cards when user reaches second-to-last card
         if currentIndex >= cards.count - 2 {
             Task {
-                await loadMoreCards()
+                loadMoreCards()
             }
         }
     }
@@ -169,7 +169,7 @@ class VerticalCardViewModel: ObservableObject {
     private func loadEnhancedVocabulary() async throws -> EnhancedFirstDailyWordResponse? {
         // Try to get enhanced vocabulary from API
         do {
-            return try await apiService.getFirstDailyWord()
+            return try await apiService.getFirstDailyWord(userId: "default-user")
         } catch {
             print("Failed to load enhanced vocabulary: \(error)")
             return nil
@@ -177,7 +177,23 @@ class VerticalCardViewModel: ObservableObject {
     }
     
     private func convertToVocabularyCard(from response: EnhancedFirstDailyWordResponse) -> VocabularyCard {
-        let dailyWord = response.dailyWord
+        guard let dailyWord = response.dailyWord else {
+            // Return a default card if dailyWord is nil
+            return VocabularyCard(
+                id: UUID().uuidString,
+                term: "Welcome",
+                pronunciation: "ˈwelkəm",
+                partOfSpeech: "n.",
+                definition: "A greeting or reception.",
+                example: "Welcome to Larry!",
+                imageUrl: nil,
+                synonyms: ["greeting", "reception"],
+                antonyms: ["farewell", "goodbye"],
+                relatedTerms: [],
+                difficulty: 1
+            )
+        }
+        
         let term = dailyWord.term
         
         return VocabularyCard(
