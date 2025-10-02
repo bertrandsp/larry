@@ -370,6 +370,94 @@ private extension APIService {
             throw error
         }
     }
+    
+    // MARK: - Topic Management
+    
+    /// Get all available topics that users can add to their interests
+    func getAvailableTopics(excludeUserId: String? = nil) async throws -> AvailableTopicsResponse {
+        var path = "/topics/available"
+        if let userId = excludeUserId {
+            path += "?userId=\(userId)"
+        }
+        
+        let request = APIRequest(
+            method: .GET,
+            path: path
+        )
+        
+        return try await send(request, responseType: AvailableTopicsResponse.self)
+    }
+    
+    /// Get all topics for a specific user
+    func getUserTopics(userId: String) async throws -> UserTopicsResponse {
+        let request = APIRequest(
+            method: .GET,
+            path: "/user/\(userId)/topics"
+        )
+        
+        return try await send(request, responseType: UserTopicsResponse.self)
+    }
+    
+    /// Add an existing topic to a user's interests
+    func addTopicToUser(userId: String, topicId: String, weight: Int = 50) async throws -> AddTopicResponse {
+        let requestBody = AddTopicRequest(
+            topicId: topicId,
+            weight: weight
+        )
+        
+        let request = try APIRequest(
+            method: .POST,
+            path: "/user/\(userId)/topics/add",
+            body: requestBody
+        )
+        
+        return try await send(request, responseType: AddTopicResponse.self)
+    }
+    
+    /// Update the weight of a user's topic
+    func updateTopicWeight(userTopicId: String, weight: Int) async throws -> UpdateTopicResponse {
+        let requestBody = UpdateTopicWeightRequest(weight: weight)
+        
+        let request = try APIRequest(
+            method: .PUT,
+            path: "/user/topics/\(userTopicId)",
+            body: requestBody
+        )
+        
+        return try await send(request, responseType: UpdateTopicResponse.self)
+    }
+    
+    /// Toggle a topic's enabled/disabled state (Supabase backend only)
+    func toggleTopicEnabled(userTopicId: String) async throws -> UpdateTopicResponse {
+        let request = APIRequest(
+            method: .PUT,
+            path: "/user/topics/\(userTopicId)/toggle"
+        )
+        
+        return try await send(request, responseType: UpdateTopicResponse.self)
+    }
+    
+    /// Remove a topic from a user's interests
+    func removeTopicFromUser(userTopicId: String) async throws {
+        let request = APIRequest(
+            method: .DELETE,
+            path: "/user/topics/\(userTopicId)"
+        )
+        
+        try await send(request)
+    }
+    
+    /// Convenience method to get available topics excluding those the user already has
+    func getAvailableTopicsForUser(userId: String) async throws -> [AvailableTopic] {
+        let response = try await getAvailableTopics(excludeUserId: userId)
+        return response.topics
+    }
+    
+    /// Convenience method to get user topics as Topic models for UI compatibility
+    func getUserTopicsAsTopicModels(userId: String) async throws -> [Topic] {
+        let response = try await getUserTopics(userId: userId)
+        return response.topics.map { $0.toTopic() }
+    }
 }
 
 // MARK: - Response Models

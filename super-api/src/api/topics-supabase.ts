@@ -30,7 +30,6 @@ router.get('/topics/available', async (req, res) => {
         id,
         name,
         description,
-        category,
         isActive,
         createdAt,
         updatedAt,
@@ -72,7 +71,7 @@ router.get('/topics/available', async (req, res) => {
         id: topic.id,
         name: topic.name,
         description: topic.description,
-        category: topic.category,
+        category: 'other', // Default category since we removed it from query
         isActive: topic.isActive,
         termCount,
         userCount,
@@ -127,7 +126,6 @@ router.get('/user/:userId/topics', async (req, res) => {
           id,
           name,
           description,
-          category,
           isActive,
           terms:Term(count)
         )
@@ -152,7 +150,7 @@ router.get('/user/:userId/topics', async (req, res) => {
         weight: ut.weight,
         enabled: ut.enabled,
         termCount: terms.length || (topic?.terms as any)?.count || 0,
-        category: topic?.category,
+        category: 'other', // Default category
         createdAt: ut.createdAt,
         updatedAt: ut.updatedAt
       };
@@ -193,7 +191,7 @@ router.post('/user/:userId/topics/add', async (req, res) => {
     // Check if topic exists
     const { data: topic, error: topicError } = await supabase
       .from('Topic')
-      .select('id, name, description, category, isActive')
+      .select('id, name, description, isActive')
       .eq('id', topicId)
       .single();
 
@@ -266,7 +264,7 @@ router.post('/user/:userId/topics/add', async (req, res) => {
           id: topic.id,
           name: topic.name,
           description: topic.description,
-          category: topic.category,
+          category: 'other', // Default category
           termCount: termCount || 0
         },
         createdAt: userTopic.createdAt,
@@ -311,8 +309,7 @@ router.put('/user/topics/:userTopicId', async (req, res) => {
         topic:Topic(
           id,
           name,
-          description,
-          category
+          description
         )
       `)
       .single();
@@ -377,8 +374,7 @@ router.put('/user/topics/:userTopicId/toggle', async (req, res) => {
         topic:Topic(
           id,
           name,
-          description,
-          category
+          description
         )
       `)
       .single();
