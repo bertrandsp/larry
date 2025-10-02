@@ -5,7 +5,7 @@ struct PerfectSnapScrollView: View {
     @State private var currentIndex: Int = 0
     @State private var dragOffset: CGFloat = 0
     @State private var isSnapping: Bool = false
-    @State private var scrollProxy: ScrollViewReader?
+    @State private var scrollProxy: Any?
     
     var body: some View {
         GeometryReader { geometry in
@@ -82,7 +82,7 @@ struct PerfectSnapScrollView: View {
         guard !isSnapping else { return }
         
         // Provide subtle visual feedback during drag
-        let translation = value.translation.y
+        let translation = value.translation.height
         let progress = abs(translation) / (screenHeight * 0.3)
         dragOffset = translation
         
@@ -93,11 +93,11 @@ struct PerfectSnapScrollView: View {
         }
     }
     
-    private func handleDragEnded(value: DragGesture.Value, screenHeight: CGFloat, proxy: ScrollViewReader) {
+    private func handleDragEnded(value: DragGesture.Value, screenHeight: CGFloat, proxy: Any) {
         guard !isSnapping else { return }
         
-        let translation = value.translation.y
-        let velocity = value.velocity.y
+        let translation = value.translation.height
+        let velocity = value.velocity.height
         
         // More sensitive thresholds for better UX
         let translationThreshold: CGFloat = screenHeight * 0.12 // 12% of screen
@@ -118,7 +118,7 @@ struct PerfectSnapScrollView: View {
         snapToCard(index: targetIndex, proxy: proxy)
     }
     
-    private func snapToCard(index: Int, proxy: ScrollViewReader) {
+    private func snapToCard(index: Int, proxy: Any) {
         guard index >= 0 && index < viewModel.cards.count else { return }
         
         isSnapping = true
@@ -127,7 +127,7 @@ struct PerfectSnapScrollView: View {
         // Smooth spring animation
         withAnimation(.interpolatingSpring(stiffness: 280, damping: 28, initialVelocity: 0)) {
             currentIndex = index
-            proxy.scrollTo(index, anchor: .top)
+            (proxy as AnyObject).scrollTo?(index, anchor: .top)
         }
         
         // Haptic feedback

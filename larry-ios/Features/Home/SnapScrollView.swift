@@ -63,15 +63,15 @@ struct SnapScrollView: View {
     
     private func handleDragChanged(value: DragGesture.Value, screenHeight: CGFloat) {
         // Provide immediate visual feedback during drag
-        let translation = value.translation.y
+        let translation = value.translation.height
         // You could add subtle visual feedback here if needed
     }
     
     private func handleDragEnded(value: DragGesture.Value, screenHeight: CGFloat) {
         guard !isSnapping else { return }
         
-        let translation = value.translation.y
-        let velocity = value.velocity.y
+        let translation = value.translation.height
+        let velocity = value.velocity.height
         
         // Thresholds for determining swipe direction
         let translationThreshold: CGFloat = screenHeight * 0.15 // 15% of screen
