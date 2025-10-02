@@ -3,13 +3,16 @@ import SwiftUI
 enum ScrollMode {
     case snapToPage    // Fast snapping between cards
     case continuous    // Slow continuous scrolling
+    case progressive   // Progressive scroll with peek and snap
 }
 
 struct VerticalTabView<Content: View>: View {
     let content: () -> Content
     @State private var currentIndex: Int = 0
     @State private var isAnimating: Bool = false
-    @State private var scrollMode: ScrollMode = .snapToPage
+    @State private var scrollMode: ScrollMode = .progressive
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
     
     init(@ViewBuilder content: @escaping () -> Content) {
         self.content = content
@@ -24,11 +27,12 @@ struct VerticalTabView<Content: View>: View {
                 HStack {
                     Spacer()
                     Picker("Scroll Mode", selection: $scrollMode) {
+                        Text("Progressive").tag(ScrollMode.progressive)
                         Text("Snap").tag(ScrollMode.snapToPage)
                         Text("Scroll").tag(ScrollMode.continuous)
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .frame(width: 150)
+                    .frame(width: 200)
                     .padding(.trailing, 16)
                     .padding(.top, 8)
                 }
@@ -39,7 +43,8 @@ struct VerticalTabView<Content: View>: View {
                             content()
                         }
                     }
-                    .scrollDisabled(scrollMode == .snapToPage) // Disable native scrolling only in snap mode
+                    .scrollDisabled(scrollMode == .snapToPage || scrollMode == .progressive)
+                    .offset(y: scrollMode == .progressive ? dragOffset : 0)
                     .onAppear {
                         // Scroll to the current index on appear
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -58,12 +63,24 @@ struct VerticalTabView<Content: View>: View {
                                     proxy.scrollTo(currentIndex, anchor: .top)
                                 }
                             }
+                        } else if newMode == .progressive {
+                            // Reset drag offset when switching to progressive mode
+                            dragOffset = 0
                         }
                     }
                     .gesture(
-                        DragGesture(minimumDistance: scrollMode == .snapToPage ? 10 : 0)
+                        DragGesture(minimumDistance: scrollMode == .progressive ? 0 : (scrollMode == .snapToPage ? 10 : 0))
+                            .onChanged { value in
+                                if scrollMode == .progressive {
+                                    handleProgressiveDragChanged(value: value, screenHeight: screenHeight)
+                                }
+                            }
                             .onEnded { value in
-                                if scrollMode == .snapToPage {
+                                if scrollMode == .progressive {
+                                    handleProgressiveDragEnded(value: value, screenHeight: screenHeight) {
+                                        proxy.scrollTo($0, anchor: .top)
+                                    }
+                                } else if scrollMode == .snapToPage {
                                     handleSnapGesture(value: value, screenHeight: screenHeight) {
                                         proxy.scrollTo($0, anchor: .top)
                                     }
@@ -71,6 +88,64 @@ struct VerticalTabView<Content: View>: View {
                             }
                     )
                 }
+            }
+        }
+    }
+    
+    private func handleProgressiveDragChanged(value: DragGesture.Value, screenHeight: CGFloat) {
+        isDragging = true
+        
+        // Calculate drag percentage (0-100% or 0 to -100%)
+        let translation = value.translation.height
+        let maxDrag = screenHeight * 0.8 // Allow dragging up to 80% of screen height
+        let clampedTranslation = max(-maxDrag, min(maxDrag, translation))
+        
+        // Apply the drag offset for visual feedback
+        dragOffset = clampedTranslation
+    }
+    
+    private func handleProgressiveDragEnded(value: DragGesture.Value, screenHeight: CGFloat, scrollTo: @escaping (Int) -> Void) {
+        isDragging = false
+        
+        // Prevent multiple simultaneous animations
+        guard !isAnimating else { return }
+        
+        let translation = value.translation.height
+        let velocity = value.velocity.height
+        let screenHeight = screenHeight
+        
+        // Determine if we should snap to next/previous card
+        let snapThreshold: CGFloat = screenHeight * 0.3 // 30% of screen height
+        let velocityThreshold: CGFloat = 500
+        
+        var targetIndex = currentIndex
+        
+        if translation > snapThreshold || velocity > velocityThreshold {
+            // Swipe down - go to previous card
+            targetIndex = max(currentIndex - 1, 0)
+        } else if translation < -snapThreshold || velocity < -velocityThreshold {
+            // Swipe up - go to next card
+            targetIndex = currentIndex + 1
+        }
+        
+        // Animate to target position
+        if targetIndex != currentIndex {
+            // Snap to next/previous card
+            isAnimating = true
+            currentIndex = targetIndex
+            
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                dragOffset = 0
+                scrollTo(currentIndex)
+            } completion: {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isAnimating = false
+                }
+            }
+        } else {
+            // Snap back to current card
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                dragOffset = 0
             }
         }
     }
@@ -125,9 +200,20 @@ struct VerticalTabView_Previews: PreviewProvider {
                             Text("Card \(index + 1)")
                                 .font(.largeTitle)
                                 .foregroundColor(.white)
-                            Text("Swipe up/down or use toggle")
+                            Text("Drag to peek next/previous")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.8))
+                            if index < 4 {
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.3))
+                                    .frame(height: 60)
+                                    .overlay(
+                                        Text("Next Card Preview")
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                    )
+                                    .offset(y: UIScreen.main.bounds.height - 100)
+                            }
                         }
                     )
                     .id(index)
