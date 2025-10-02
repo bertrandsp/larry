@@ -10,10 +10,10 @@ struct VerticalTabView<Content: View>: View {
     let content: () -> Content
     let cardCount: Int
     @State private var currentIndex: Int = 0
-    @State private var isAnimating: Bool = false
     @State private var scrollMode: ScrollMode = .progressive
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
+    @State private var dragStartTime: Date = Date()
     
     init(cardCount: Int = 5, @ViewBuilder content: @escaping () -> Content) {
         self.cardCount = cardCount
@@ -71,7 +71,7 @@ struct VerticalTabView<Content: View>: View {
                         }
                     }
                     .gesture(
-                        DragGesture(minimumDistance: scrollMode == .progressive ? 0 : (scrollMode == .snapToPage ? 10 : 0))
+                        DragGesture(minimumDistance: 0)
                             .onChanged { value in
                                 if scrollMode == .progressive {
                                     handleProgressiveDragChanged(value: value, screenHeight: screenHeight)
@@ -95,9 +95,11 @@ struct VerticalTabView<Content: View>: View {
     }
     
     private func handleProgressiveDragChanged(value: DragGesture.Value, screenHeight: CGFloat) {
-        isDragging = true
+        if !isDragging {
+            isDragging = true
+            dragStartTime = Date()
+        }
         
-        // Calculate drag percentage (0-100% or 0 to -100%)
         let translation = value.translation.height
         let maxDrag = screenHeight * 0.8 // Allow dragging up to 80% of screen height
         
@@ -109,7 +111,7 @@ struct VerticalTabView<Content: View>: View {
             clampedTranslation = max(0, min(maxDrag, translation))
         }
         // If on last card, don't allow dragging up (negative translation)
-        else if currentIndex >= getCardCount() - 1 && translation < 0 {
+        else if currentIndex >= cardCount - 1 && translation < 0 {
             clampedTranslation = max(-maxDrag, min(0, translation))
         }
         // Normal case - allow full range
@@ -124,57 +126,46 @@ struct VerticalTabView<Content: View>: View {
     private func handleProgressiveDragEnded(value: DragGesture.Value, screenHeight: CGFloat, scrollTo: @escaping (Int) -> Void) {
         isDragging = false
         
-        // Prevent multiple simultaneous animations
-        guard !isAnimating else { return }
-        
         let translation = value.translation.height
         let velocity = value.velocity.height
-        let screenHeight = screenHeight
+        let dragDuration = Date().timeIntervalSince(dragStartTime)
         
         // Determine if we should snap to next/previous card
-        let snapThreshold: CGFloat = screenHeight * 0.3 // 30% of screen height
-        let velocityThreshold: CGFloat = 500
+        let snapThreshold: CGFloat = screenHeight * 0.25 // 25% of screen height (more forgiving)
+        let velocityThreshold: CGFloat = 300 // Lower velocity threshold
         
         var targetIndex = currentIndex
         
-        if translation > snapThreshold || velocity > velocityThreshold {
-            // Swipe down - go to previous card (only if not on first card)
-            if currentIndex > 0 {
-                targetIndex = currentIndex - 1
-            }
-        } else if translation < -snapThreshold || velocity < -velocityThreshold {
-            // Swipe up - go to next card (only if not on last card)
-            if currentIndex < getCardCount() - 1 {
-                targetIndex = currentIndex + 1
-            }
+        // Use both distance and velocity for snap decision
+        let shouldSnapDown = translation > snapThreshold || (velocity > velocityThreshold && dragDuration < 0.5)
+        let shouldSnapUp = translation < -snapThreshold || (velocity < -velocityThreshold && dragDuration < 0.5)
+        
+        if shouldSnapDown && currentIndex > 0 {
+            // Swipe down - go to previous card
+            targetIndex = currentIndex - 1
+        } else if shouldSnapUp && currentIndex < cardCount - 1 {
+            // Swipe up - go to next card
+            targetIndex = currentIndex + 1
         }
         
         // Animate to target position
         if targetIndex != currentIndex {
             // Snap to next/previous card
-            isAnimating = true
             currentIndex = targetIndex
             
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
                 dragOffset = 0
                 scrollTo(currentIndex)
-            } completion: {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isAnimating = false
-                }
             }
         } else {
             // Snap back to current card
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 dragOffset = 0
             }
         }
     }
     
     private func handleSnapGesture(value: DragGesture.Value, screenHeight: CGFloat, scrollTo: @escaping (Int) -> Void) {
-        // Prevent multiple simultaneous animations
-        guard !isAnimating else { return }
-        
         let translation = value.translation.height
         let velocity = value.velocity.height
         
@@ -186,31 +177,24 @@ struct VerticalTabView<Content: View>: View {
         
         if translation > distanceThreshold || velocity > velocityThreshold {
             // Swipe down - go to previous card
-            targetIndex = max(currentIndex - 1, 0)
+            if currentIndex > 0 {
+                targetIndex = currentIndex - 1
+            }
         } else if translation < -distanceThreshold || velocity < -velocityThreshold {
             // Swipe up - go to next card
-            targetIndex = currentIndex + 1
+            if currentIndex < cardCount - 1 {
+                targetIndex = currentIndex + 1
+            }
         }
         
         // Only animate if we're actually changing cards
         if targetIndex != currentIndex {
-            isAnimating = true
             currentIndex = targetIndex
             
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
                 scrollTo(currentIndex)
-            } completion: {
-                // Reset animation flag after animation completes
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isAnimating = false
-                }
             }
         }
-    }
-    
-    // Helper function to get card count
-    private func getCardCount() -> Int {
-        return cardCount
     }
 }
 
@@ -229,17 +213,6 @@ struct VerticalTabView_Previews: PreviewProvider {
                             Text("Drag to peek next/previous")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.8))
-                            if index < 4 {
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.3))
-                                    .frame(height: 60)
-                                    .overlay(
-                                        Text("Next Card Preview")
-                                            .font(.caption)
-                                            .foregroundColor(.white)
-                                    )
-                                    .offset(y: UIScreen.main.bounds.height - 100)
-                            }
                         }
                     )
                     .id(index)
