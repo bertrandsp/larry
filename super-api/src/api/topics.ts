@@ -316,6 +316,144 @@ router.post('/admin/canonical-sets/cleanup', async (req, res) => {
   }
 });
 
+// GET /topics/available - Get all available topics that users can add
+router.get('/topics/available', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    // Get all active topics
+    const allTopics = await prisma.topic.findMany({
+      where: {
+        isActive: true
+      },
+      include: {
+        terms: true,
+        _count: {
+          select: {
+            userTopics: true, // Count how many users have this topic
+            terms: true
+          }
+        }
+      },
+      orderBy: [
+        { _count: { userTopics: 'desc' } }, // Popular topics first
+        { name: 'asc' }
+      ]
+    });
+
+    // If userId provided, exclude topics user already has
+    let availableTopics = allTopics;
+    if (userId) {
+      const userTopics = await prisma.userTopic.findMany({
+        where: { userId: userId as string },
+        select: { topicId: true }
+      });
+      const userTopicIds = new Set(userTopics.map(ut => ut.topicId));
+      
+      availableTopics = allTopics.filter(topic => !userTopicIds.has(topic.id));
+    }
+
+    const result = availableTopics.map(topic => ({
+      id: topic.id,
+      name: topic.name,
+      description: topic.description,
+      category: topic.category,
+      isActive: topic.isActive,
+      termCount: topic._count.terms,
+      userCount: topic._count.userTopics,
+      isPopular: topic._count.userTopics > 10, // Mark as popular if >10 users
+      createdAt: topic.createdAt,
+      updatedAt: topic.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      topics: result,
+      totalCount: result.length
+    });
+  } catch (error: any) {
+    console.error('Error fetching available topics:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /user/:userId/topics/add - Add existing topic to user (simpler version)
+router.post('/user/:userId/topics/add', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { topicId, weight = 50 } = req.body;
+
+    // Validate input
+    if (!topicId) {
+      return res.status(400).json({ error: 'topicId is required' });
+    }
+    if (weight < 0 || weight > 100) {
+      return res.status(400).json({ error: 'Weight must be between 0 and 100' });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if topic exists
+    const topic = await prisma.topic.findUnique({ where: { id: topicId } });
+    if (!topic) {
+      return res.status(404).json({ error: 'Topic not found' });
+    }
+
+    // Check if user already has this topic
+    const existingUserTopic = await prisma.userTopic.findFirst({
+      where: { userId, topicId }
+    });
+    if (existingUserTopic) {
+      return res.status(409).json({ error: 'User already has this topic' });
+    }
+
+    // Add topic to user
+    const userTopic = await prisma.userTopic.create({
+      data: {
+        userId,
+        topicId,
+        weight
+      },
+      include: {
+        topic: {
+          include: {
+            terms: true,
+            _count: {
+              select: { terms: true }
+            }
+          }
+        }
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      userTopic: {
+        id: userTopic.id,
+        topicId: userTopic.topicId,
+        userId: userTopic.userId,
+        weight: userTopic.weight,
+        topic: {
+          id: userTopic.topic.id,
+          name: userTopic.topic.name,
+          description: userTopic.topic.description,
+          category: userTopic.topic.category,
+          termCount: userTopic.topic._count.terms
+        },
+        createdAt: userTopic.createdAt,
+        updatedAt: userTopic.updatedAt
+      }
+    });
+  } catch (error: any) {
+    console.error('Error adding topic to user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 
 export default router;
