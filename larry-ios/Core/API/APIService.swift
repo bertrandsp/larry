@@ -9,6 +9,18 @@ import Foundation
 // import Alamofire // TODO: Add Alamofire dependency to Xcode project
 import Combine
 
+/// API Error types
+enum APIError: Error {
+    case invalidURL
+    case noData
+    case decodingError
+    case networkError(Error)
+    case serverError(Int)
+    case unauthorized
+    case notFound
+    case cancelled
+}
+
 /// Main API service for communicating with the Larry backend
 @MainActor
 class APIService: ObservableObject {
