@@ -63,7 +63,7 @@ struct SnapScrollView: View {
     
     private func handleDragChanged(value: DragGesture.Value, screenHeight: CGFloat) {
         // Provide immediate visual feedback during drag
-        let translation = value.translation.height
+        let _ = value.translation.height // Visual feedback calculation
         // You could add subtle visual feedback here if needed
     }
     
@@ -150,7 +150,7 @@ struct TabViewSnapScroll: View {
             .onAppear {
                 viewModel.loadInitialCards()
             }
-            .onChange(of: currentIndex) { newIndex in
+            .onChange(of: currentIndex) { _, newIndex in
                 // Announce for accessibility
                 announceCardChange(for: viewModel.cards[safe: newIndex])
                 

@@ -44,7 +44,7 @@ struct VerticalCardScrollView: View {
                 .onAppear {
                     viewModel.loadInitialCards()
                 }
-                .onChange(of: currentIndex) { newIndex in
+                .onChange(of: currentIndex) { _, newIndex in
                     // Announce card change for VoiceOver
                     announceCardChange(for: viewModel.cards[safe: newIndex])
                     
@@ -90,7 +90,7 @@ struct VerticalCardScrollView: View {
         dragOffset = 0
         
         withAnimation(.easeOut(duration: 0.3)) {
-            (proxy as AnyObject).scrollTo?(index, anchor: UnitPoint.top)
+            // Update the current index - TabView will handle the scrolling automatically
             currentIndex = index
         }
         

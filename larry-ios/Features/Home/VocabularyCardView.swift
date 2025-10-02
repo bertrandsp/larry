@@ -259,8 +259,9 @@ struct VocabularyCardView: View {
         Task {
             do {
                 try await APIService.shared.markTermRelevance(
+                    userId: "default-user", // TODO: Get actual user ID
                     termId: card.id,
-                    action: isFavorited ? .markAsFavorite : .markAsRelevant
+                    action: isFavorited ? .favorite : .markRelevant
                 )
                 print("Successfully toggled favorite for: \(card.term)")
             } catch {
@@ -282,8 +283,9 @@ struct VocabularyCardView: View {
         Task {
             do {
                 try await APIService.shared.markTermRelevance(
+                    userId: "default-user", // TODO: Get actual user ID
                     termId: card.id,
-                    action: .markForRelearning
+                    action: .learnAgain
                 )
                 print("Successfully marked for review: \(card.term)")
                 
@@ -305,8 +307,9 @@ struct VocabularyCardView: View {
         Task {
             do {
                 try await APIService.shared.markTermRelevance(
+                    userId: "default-user", // TODO: Get actual user ID
                     termId: card.id,
-                    action: isLearned ? .markAsMastered : .markAsRelevant
+                    action: isLearned ? .mastered : .markRelevant
                 )
                 print("Successfully marked as mastered: \(card.term)")
                 

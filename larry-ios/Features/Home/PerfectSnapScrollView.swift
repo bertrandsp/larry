@@ -83,7 +83,7 @@ struct PerfectSnapScrollView: View {
         
         // Provide subtle visual feedback during drag
         let translation = value.translation.height
-        let progress = abs(translation) / (screenHeight * 0.3)
+        let _ = abs(translation) / (screenHeight * 0.3) // Visual feedback calculation
         dragOffset = translation
         
         // Optional: Add subtle resistance at boundaries
@@ -126,8 +126,8 @@ struct PerfectSnapScrollView: View {
         
         // Smooth spring animation
         withAnimation(.interpolatingSpring(stiffness: 280, damping: 28, initialVelocity: 0)) {
+            // Update the current index - TabView will handle the scrolling automatically
             currentIndex = index
-            (proxy as AnyObject).scrollTo?(index, anchor: .top)
         }
         
         // Haptic feedback
