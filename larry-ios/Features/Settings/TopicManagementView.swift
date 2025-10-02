@@ -76,6 +76,9 @@ struct TopicManagementView: View {
                 Text("This will automatically distribute weights evenly across all enabled topics to total 100%.")
             }
             .task {
+                #if DEBUG
+                print("🔍 TopicManagementView: .task modifier executing - calling loadTopics()")
+                #endif
                 await viewModel.loadTopics()
             }
         }

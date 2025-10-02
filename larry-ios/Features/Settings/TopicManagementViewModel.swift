@@ -40,6 +40,10 @@ class TopicManagementViewModel: ObservableObject {
     
     /// Load both user topics and available topics
     func loadTopics() async {
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: loadTopics() method called")
+        #endif
+        
         state = .loading
         errorMessage = nil
         
@@ -79,14 +83,30 @@ class TopicManagementViewModel: ObservableObject {
     
     /// Load only user topics
     func loadUserTopics() async throws {
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: loadUserTopics() called for userId: \(userId)")
+        #endif
+        
         let response = try await apiService.getUserTopics(userId: userId)
         userTopics = response.topics
+        
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: loadUserTopics() completed - got \(userTopics.count) topics")
+        #endif
     }
     
     /// Load only available topics (excluding user's current topics)
     func loadAvailableTopics() async throws {
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: loadAvailableTopics() called for userId: \(userId)")
+        #endif
+        
         let response = try await apiService.getAvailableTopics(excludeUserId: userId)
         availableTopics = response.topics
+        
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: loadAvailableTopics() completed - got \(availableTopics.count) topics")
+        #endif
     }
     
     /// Add a topic to the user's interests
