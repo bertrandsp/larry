@@ -8,13 +8,15 @@ enum ScrollMode {
 
 struct VerticalTabView<Content: View>: View {
     let content: () -> Content
+    let cardCount: Int
     @State private var currentIndex: Int = 0
     @State private var isAnimating: Bool = false
     @State private var scrollMode: ScrollMode = .progressive
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
     
-    init(@ViewBuilder content: @escaping () -> Content) {
+    init(cardCount: Int = 5, @ViewBuilder content: @escaping () -> Content) {
+        self.cardCount = cardCount
         self.content = content
     }
     
@@ -98,7 +100,22 @@ struct VerticalTabView<Content: View>: View {
         // Calculate drag percentage (0-100% or 0 to -100%)
         let translation = value.translation.height
         let maxDrag = screenHeight * 0.8 // Allow dragging up to 80% of screen height
-        let clampedTranslation = max(-maxDrag, min(maxDrag, translation))
+        
+        // Apply boundary checks
+        var clampedTranslation = translation
+        
+        // If on first card, don't allow dragging down (positive translation)
+        if currentIndex == 0 && translation > 0 {
+            clampedTranslation = max(0, min(maxDrag, translation))
+        }
+        // If on last card, don't allow dragging up (negative translation)
+        else if currentIndex >= getCardCount() - 1 && translation < 0 {
+            clampedTranslation = max(-maxDrag, min(0, translation))
+        }
+        // Normal case - allow full range
+        else {
+            clampedTranslation = max(-maxDrag, min(maxDrag, translation))
+        }
         
         // Apply the drag offset for visual feedback
         dragOffset = clampedTranslation
@@ -121,11 +138,15 @@ struct VerticalTabView<Content: View>: View {
         var targetIndex = currentIndex
         
         if translation > snapThreshold || velocity > velocityThreshold {
-            // Swipe down - go to previous card
-            targetIndex = max(currentIndex - 1, 0)
+            // Swipe down - go to previous card (only if not on first card)
+            if currentIndex > 0 {
+                targetIndex = currentIndex - 1
+            }
         } else if translation < -snapThreshold || velocity < -velocityThreshold {
-            // Swipe up - go to next card
-            targetIndex = currentIndex + 1
+            // Swipe up - go to next card (only if not on last card)
+            if currentIndex < getCardCount() - 1 {
+                targetIndex = currentIndex + 1
+            }
         }
         
         // Animate to target position
@@ -185,6 +206,11 @@ struct VerticalTabView<Content: View>: View {
                 }
             }
         }
+    }
+    
+    // Helper function to get card count
+    private func getCardCount() -> Int {
+        return cardCount
     }
 }
 
