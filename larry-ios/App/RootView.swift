@@ -20,7 +20,7 @@ struct RootView: View {
             } else if authManager.isAuthenticated {
                 if let user = authManager.currentUser, user.onboardingCompleted {
                     // User is authenticated and onboarded -> show main app
-                    HomeView()
+                    MainContentView()
                 } else {
                     // User is authenticated but needs onboarding
                     OnboardingView()

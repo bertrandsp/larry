@@ -6,8 +6,8 @@ struct MainContentView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Home Tab - Vertical Card Scroll
-            TabViewSnapScroll()
+            // Home Tab - Test Vertical Card Scroll with Mock Data
+            TestVerticalScroll()
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Daily Words")
