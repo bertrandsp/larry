@@ -29,12 +29,12 @@ struct VerticalCardScrollView: View {
                     DragGesture()
                         .onChanged { value in
                             if !isSnapping {
-                                dragOffset = value.translation.y
+                                dragOffset = value.translation.height
                             }
                         }
                         .onEnded { value in
                             handleSwipeGesture(
-                                translation: value.translation.y,
+                                translation: value.translation.height,
                                 velocity: value.velocity.y,
                                 proxy: proxy,
                                 cardHeight: cardHeight
@@ -60,7 +60,7 @@ struct VerticalCardScrollView: View {
     private func handleSwipeGesture(
         translation: CGFloat,
         velocity: CGFloat,
-        proxy: ScrollViewReader<Int>,
+        proxy: ScrollViewReader,
         cardHeight: CGFloat
     ) {
         guard !isSnapping else { return }
@@ -83,7 +83,7 @@ struct VerticalCardScrollView: View {
         snapToCard(index: targetIndex, proxy: proxy)
     }
     
-    private func snapToCard(index: Int, proxy: ScrollViewReader<Int>) {
+    private func snapToCard(index: Int, proxy: ScrollViewReader) {
         guard index != currentIndex else { return }
         
         isSnapping = true
@@ -194,20 +194,18 @@ class VerticalCardViewModel: ObservableObject {
             )
         }
         
-        let term = dailyWord.term
-        
         return VocabularyCard(
-            id: term.id,
-            term: term.term,
-            pronunciation: term.pronunciation ?? "",
-            partOfSpeech: term.partOfSpeech ?? "",
-            definition: term.definition,
-            example: term.example ?? "",
+            id: dailyWord.id,
+            term: dailyWord.term,
+            pronunciation: dailyWord.pronunciation ?? "",
+            partOfSpeech: dailyWord.partOfSpeech ?? "",
+            definition: dailyWord.definition,
+            example: dailyWord.example ?? "",
             imageUrl: nil, // Add image URL support later
-            synonyms: term.synonyms,
-            antonyms: term.antonyms,
-            relatedTerms: term.relatedTerms.map { $0.term },
-            difficulty: term.difficulty ?? 1
+            synonyms: dailyWord.synonyms,
+            antonyms: dailyWord.antonyms,
+            relatedTerms: dailyWord.relatedTerms.map { $0.term },
+            difficulty: dailyWord.difficulty ?? 1
         )
     }
     

@@ -45,8 +45,10 @@ struct MainContentView: View {
             .tag(3)
         }
         .onAppear {
-            viewModel.loadDailyWords()
-            viewModel.loadFirstDailyWord()
+            Task {
+                await viewModel.loadDailyWords()
+                await viewModel.loadFirstDailyWord()
+            }
         }
     }
 }
