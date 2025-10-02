@@ -38,8 +38,8 @@ class APIService: ObservableObject {
                 return envURL
             }
             
-            // Default to network IP for iOS Simulator compatibility
-            // Change this to "localhost" if testing on physical device via USB
+            // Use network IP for both simulator and physical device compatibility
+            // This allows both iOS Simulator and physical devices to connect
             return "http://192.168.1.101:4001"
         }
         #endif
@@ -208,6 +208,23 @@ class APIService: ObservableObject {
         )
         
         return try await send(request, responseType: DeliveryActionResponse.self)
+    }
+    
+    /// Mark term relevance for vocabulary interactions
+    func markTermRelevance(userId: String, termId: String, action: VocabularyAction) async throws {
+        let requestBody = [
+            "userId": userId,
+            "termId": termId,
+            "action": action.rawValue
+        ]
+        
+        let request = try APIRequest(
+            method: .PUT,
+            path: "/user/\(userId)/terms/\(termId)/relevance",
+            body: requestBody
+        )
+        
+        try await send(request)
     }
     
     /// Get enhanced daily word (with delivery tracking) for returning users
