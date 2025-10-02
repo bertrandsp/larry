@@ -1,5 +1,8 @@
 import express from 'express';
 import { supabase } from '../config/supabase';
+import { passwordStore } from '../utils/passwordStore';
+import { validatePasswordStrength } from '../utils/auth';
+import { DatabaseAuth } from '../utils/databaseAuth';
 
 // Mock mode helper
 const isMockMode = !supabase;
@@ -19,6 +22,15 @@ router.post('/auth-direct/signup', async (req, res) => {
     }
     
     console.log('📧 Email signup request received:', { email, hasPassword: !!password, name });
+    
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: passwordValidation.message
+      });
+    }
     
     // Generate user ID based on email
     const userId = `email-user-${email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
@@ -85,6 +97,17 @@ router.post('/auth-direct/signup', async (req, res) => {
       console.log('✅ Created new user:', dbUser.id);
     }
     
+    // Store password securely (try database first, fallback to temp store)
+    if (!isMockMode) {
+      const dbSuccess = await DatabaseAuth.setUserPassword(email, password);
+      if (!dbSuccess) {
+        console.log('⚠️ Database password storage failed, using temporary store');
+        await passwordStore.setPassword(email, password);
+      }
+    } else {
+      await passwordStore.setPassword(email, password);
+    }
+    
     // Generate mock tokens
     const accessToken = `access_${dbUser.id}_${Date.now()}`;
     const refreshToken = `refresh_${dbUser.id}_${Date.now()}`;
@@ -129,6 +152,34 @@ router.post('/auth-direct/login', async (req, res) => {
     }
     
     console.log('📧 Email login request received:', { email, hasPassword: !!password });
+    
+    // First, verify the password (try database first, fallback to temp store)
+    let isPasswordValid = false;
+    
+    if (!isMockMode) {
+      isPasswordValid = await DatabaseAuth.verifyUserPassword(email, password);
+      
+      // If database verification failed, try temp store (for migration period)
+      if (!isPasswordValid) {
+        console.log('🔄 Database auth failed, trying temporary store...');
+        isPasswordValid = await passwordStore.verifyPassword(email, password);
+        
+        // If temp store works, migrate to database
+        if (isPasswordValid) {
+          console.log('🔄 Migrating password from temp store to database...');
+          await DatabaseAuth.migrateFromTempStore(email, password);
+        }
+      }
+    } else {
+      isPasswordValid = await passwordStore.verifyPassword(email, password);
+    }
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password'
+      });
+    }
     
     // Generate user ID based on email
     const userId = `email-user-${email.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
