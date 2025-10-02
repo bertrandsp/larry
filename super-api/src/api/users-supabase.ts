@@ -388,14 +388,14 @@ router.delete('/:userId/delete', async (req, res) => {
     // Get delivery data
     const { data: deliveryData, error: deliveryError } = await supabase
       .from('Delivery')
-      .select('term_id, delivered_at')
-      .eq('user_id', userId);
+      .select('termId, deliveredAt')
+      .eq('userId', userId);
     
     // Get wordbank data separately
     const { data: wordbankData, error: wordbankError } = await supabase
       .from('Wordbank')
-      .select('status, bucket, term_id')
-      .eq('user_id', userId);
+      .select('status, bucket, termId')
+      .eq('userId', userId);
     
     const learningError = deliveryError || wordbankError;
     const learningData = deliveryData || [];

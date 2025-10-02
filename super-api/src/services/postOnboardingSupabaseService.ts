@@ -7,7 +7,7 @@ import {
 import { logGeneration } from "./generationLogService";
 import { processVocabularyCard } from "../utils/vocabularyUtils";
 
-const DEFAULT_MAX_TERMS = 10;
+const DEFAULT_MAX_TERMS = 5; // Reduced for faster onboarding
 
 type SupabaseTopicRow = {
   topicId: string;

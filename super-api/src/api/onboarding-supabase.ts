@@ -112,12 +112,7 @@ router.post('/onboarding/complete', async (req, res) => {
     console.log('✅ Onboarding completed successfully for user:', userId);
     console.log('🎯 Ready to trigger first daily word delivery');
 
-    try {
-      await triggerSupabasePostOnboarding(userId);
-    } catch (generationError) {
-      console.error('❌ Failed to trigger Supabase post-onboarding generation:', generationError);
-    }
-
+    // Respond immediately to prevent timeout
     res.json({
       success: true,
       message: 'Onboarding completed successfully',
@@ -125,6 +120,11 @@ router.post('/onboarding/complete', async (req, res) => {
       next_step: 'home',
       onboarding_completed: true,
       ready_for_daily_word: true
+    });
+
+    // Run term generation in background (don't await)
+    triggerSupabasePostOnboarding(userId).catch((generationError) => {
+      console.error('❌ Failed to trigger Supabase post-onboarding generation:', generationError);
     });
 
   } catch (error: any) {

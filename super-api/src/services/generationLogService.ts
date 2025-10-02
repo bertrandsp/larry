@@ -57,7 +57,6 @@ export async function logGeneration(data: GenerationLogInput): Promise<void> {
           errorMessage: data.errorMessage,
           metadata: data.metadata ?? {},
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         });
 
       if (error) {
