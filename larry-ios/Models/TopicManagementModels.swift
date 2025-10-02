@@ -18,7 +18,7 @@ struct AvailableTopicsResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case success
         case topics
-        case totalCount = "total_count"
+        case totalCount
     }
 }
 
