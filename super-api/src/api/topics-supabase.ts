@@ -74,8 +74,8 @@ router.get('/topics/available', async (req, res) => {
         termCount,
         userCount,
         isPopular: userCount > 10,
-        createdAt: topic.createdAt,
-        updatedAt: topic.updatedAt
+        createdAt: new Date().toISOString(), // Default to current time
+        updatedAt: new Date().toISOString()  // Default to current time
       };
     });
 

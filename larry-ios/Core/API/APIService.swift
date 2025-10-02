@@ -73,7 +73,23 @@ class APIService: ObservableObject {
         _ request: APIRequest,
         responseType: T.Type
     ) async throws -> T {
-        let url = baseURL.appendingPathComponent(request.path)
+        // Properly construct URL to handle query parameters
+        var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        
+        // Split path and query string
+        if let queryIndex = request.path.firstIndex(of: "?") {
+            let pathPart = String(request.path[..<queryIndex])
+            let queryPart = String(request.path[request.path.index(after: queryIndex)...])
+            
+            urlComponents.path = pathPart
+            urlComponents.query = queryPart
+        } else {
+            urlComponents.path = request.path
+        }
+        
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
         
         #if DEBUG
         print("🚀 ===== API REQUEST STARTED =====")
