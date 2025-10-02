@@ -301,9 +301,11 @@ async function scheduleFirstSupabaseTerms(
 
     const nowIso = new Date().toISOString();
 
+    const wordbankId = `wb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const { data: createdWordbank, error: createWordbankError } = await supabase
       .from("Wordbank")
       .insert({
+        id: wordbankId,
         userId,
         termId,
         status: "LEARNING",

@@ -21,24 +21,29 @@ type GenerationLogInput = {
 
 export async function logGeneration(data: GenerationLogInput): Promise<void> {
   try {
-    // Try Prisma first (for Prisma-based environments)
-    try {
-      await prisma.generationLog.create({
-        data: {
-          userId: data.userId,
-          topicId: data.topicId,
-          termId: data.termId,
-          promptType: data.promptType,
-          model: data.model,
-          costEstimate: data.costEstimate,
-          success: data.success,
-          errorMessage: data.errorMessage,
-          metadata: (data.metadata ?? {}) as any,
-        },
-      });
-      return;
-    } catch (prismaError) {
-      console.log("Prisma logging failed, trying Supabase...");
+    // Skip Prisma logging in Supabase environment to avoid connection errors
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log("Using Supabase logging (Prisma disabled)");
+    } else {
+      // Try Prisma first (for Prisma-based environments)
+      try {
+        await prisma.generationLog.create({
+          data: {
+            userId: data.userId,
+            topicId: data.topicId,
+            termId: data.termId,
+            promptType: data.promptType,
+            model: data.model,
+            costEstimate: data.costEstimate,
+            success: data.success,
+            errorMessage: data.errorMessage,
+            metadata: (data.metadata ?? {}) as any,
+          },
+        });
+        return;
+      } catch (prismaError) {
+        console.log("Prisma logging failed, trying Supabase...");
+      }
     }
 
     // Fallback to Supabase logging
