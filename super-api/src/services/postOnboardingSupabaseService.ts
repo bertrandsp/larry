@@ -325,7 +325,9 @@ async function scheduleFirstSupabaseTerms(
       continue;
     }
 
+    const deliveryId = `del-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const { error: deliveryError } = await supabase.from("Delivery").insert({
+      id: deliveryId,
       userId,
       termId,
       deliveredAt: nowIso,
