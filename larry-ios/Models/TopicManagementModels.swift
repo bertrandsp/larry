@@ -90,8 +90,8 @@ struct UserTopic: Codable, Identifiable {
     let enabled: Bool
     let termCount: Int
     let category: String?
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: String?
+    let updatedAt: String?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -115,8 +115,8 @@ struct UserTopic: Codable, Identifiable {
             weight: weight,
             isBoostActive: false,
             boostEndDate: nil,
-            createdAt: ISO8601DateFormatter().date(from: createdAt) ?? Date(),
-            updatedAt: ISO8601DateFormatter().date(from: updatedAt) ?? Date()
+            createdAt: ISO8601DateFormatter().date(from: createdAt ?? "") ?? Date(),
+            updatedAt: ISO8601DateFormatter().date(from: updatedAt ?? "") ?? Date()
         )
         
         return Topic(
@@ -128,8 +128,8 @@ struct UserTopic: Codable, Identifiable {
             colorHex: nil,
             isActive: enabled,
             termCount: termCount,
-            createdAt: ISO8601DateFormatter().date(from: createdAt) ?? Date(),
-            updatedAt: ISO8601DateFormatter().date(from: updatedAt) ?? Date(),
+            createdAt: ISO8601DateFormatter().date(from: createdAt ?? "") ?? Date(),
+            updatedAt: ISO8601DateFormatter().date(from: updatedAt ?? "") ?? Date(),
             userTopicWeight: userWeight
         )
     }

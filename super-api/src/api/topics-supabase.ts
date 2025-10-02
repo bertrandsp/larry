@@ -31,8 +31,6 @@ router.get('/topics/available', async (req, res) => {
         name,
         description,
         isActive,
-        createdAt,
-        updatedAt,
         userTopics:UserTopic(count),
         terms:Term(count)
       `)
@@ -293,8 +291,6 @@ router.put('/user/topics/:userTopicId', async (req, res) => {
         userId,
         weight,
         enabled,
-        createdAt,
-        updatedAt,
         topic:Topic(
           id,
           name,
@@ -357,8 +353,6 @@ router.put('/user/topics/:userTopicId/toggle', async (req, res) => {
         userId,
         weight,
         enabled,
-        createdAt,
-        updatedAt,
         topic:Topic(
           id,
           name,
