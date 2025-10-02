@@ -46,8 +46,5 @@ class PasswordStore {
 // Singleton instance
 export const passwordStore = new PasswordStore();
 
-// Initialize with the existing user's password
-// This is temporary until we can migrate the database
-passwordStore.setPassword('btsp60@yahoo.com', 'test123').then(() => {
-  console.log('🔐 Initialized password store with existing user');
-});
+// No hardcoded credentials - all passwords should be stored in Supabase database
+// This temporary store is only used as a fallback when database operations fail
