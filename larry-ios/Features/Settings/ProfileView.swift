@@ -85,7 +85,7 @@ struct ProfileView: View {
                     SettingsRow(
                         title: "Interests & Topics",
                         icon: "slider.horizontal.3",
-                        destination: InterestsView()
+                        destination: TopicManagementView()
                     )
                     
                     SettingsRow(
@@ -204,16 +204,6 @@ private struct SettingsRow<Destination: View>: View {
     }
 }
 
-private struct InterestsView: View {
-    var body: some View {
-        ComingSoonView(
-            title: "Interests & Topics",
-            description: "Manage your learning topics and weights here"
-        )
-        .navigationTitle("Interests")
-        .navigationBarTitleDisplayMode(.large)
-    }
-}
 
 #Preview {
     ProfileView()

@@ -27,7 +27,7 @@ class TopicManagementViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    init(apiService: APIService = APIService.shared, userId: String = "default-user") {
+    nonisolated init(apiService: APIService = APIService.shared, userId: String = "default-user") {
         self.apiService = apiService
         self.userId = userId
     }
@@ -39,16 +39,36 @@ class TopicManagementViewModel: ObservableObject {
         state = .loading
         errorMessage = nil
         
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: Loading topics for user: \(userId)")
+        #endif
+        
         do {
             // Load user topics and available topics concurrently
-            async let userTopicsTask = loadUserTopics()
-            async let availableTopicsTask = loadAvailableTopics()
+            async let userTopicsTask: Void = loadUserTopics()
+            async let availableTopicsTask: Void = loadAvailableTopics()
             
-            try await userTopicsTask
+            // Try to load both, but don't fail if user topics fail
+            do {
+                try await userTopicsTask
+            } catch {
+                #if DEBUG
+                print("🔍 TopicManagementViewModel: Failed to load user topics: \(error)")
+                #endif
+                // Continue with available topics even if user topics fail
+            }
+            
             try await availableTopicsTask
+            
+            #if DEBUG
+            print("🔍 TopicManagementViewModel: Successfully loaded \(userTopics.count) user topics and \(availableTopics.count) available topics")
+            #endif
             
             state = .loaded
         } catch {
+            #if DEBUG
+            print("🔍 TopicManagementViewModel: Error loading topics: \(error)")
+            #endif
             await handleError(error)
         }
     }

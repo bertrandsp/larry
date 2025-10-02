@@ -374,7 +374,7 @@ private extension APIService {
     // MARK: - Topic Management
     
     /// Get all available topics that users can add to their interests
-    func getAvailableTopics(excludeUserId: String? = nil) async throws -> AvailableTopicsResponse {
+    public func getAvailableTopics(excludeUserId: String? = nil) async throws -> AvailableTopicsResponse {
         var path = "/topics/available"
         if let userId = excludeUserId {
             path += "?userId=\(userId)"
@@ -389,7 +389,7 @@ private extension APIService {
     }
     
     /// Get all topics for a specific user
-    func getUserTopics(userId: String) async throws -> UserTopicsResponse {
+    public func getUserTopics(userId: String) async throws -> UserTopicsResponse {
         let request = APIRequest(
             method: .GET,
             path: "/user/\(userId)/topics"
@@ -399,7 +399,7 @@ private extension APIService {
     }
     
     /// Add an existing topic to a user's interests
-    func addTopicToUser(userId: String, topicId: String, weight: Int = 50) async throws -> AddTopicResponse {
+    public func addTopicToUser(userId: String, topicId: String, weight: Int = 50) async throws -> AddTopicResponse {
         let requestBody = AddTopicRequest(
             topicId: topicId,
             weight: weight
@@ -415,7 +415,7 @@ private extension APIService {
     }
     
     /// Update the weight of a user's topic
-    func updateTopicWeight(userTopicId: String, weight: Int) async throws -> UpdateTopicResponse {
+    public func updateTopicWeight(userTopicId: String, weight: Int) async throws -> UpdateTopicResponse {
         let requestBody = UpdateTopicWeightRequest(weight: weight)
         
         let request = try APIRequest(
@@ -428,7 +428,7 @@ private extension APIService {
     }
     
     /// Toggle a topic's enabled/disabled state (Supabase backend only)
-    func toggleTopicEnabled(userTopicId: String) async throws -> UpdateTopicResponse {
+    public func toggleTopicEnabled(userTopicId: String) async throws -> UpdateTopicResponse {
         let request = APIRequest(
             method: .PUT,
             path: "/user/topics/\(userTopicId)/toggle"
@@ -438,7 +438,7 @@ private extension APIService {
     }
     
     /// Remove a topic from a user's interests
-    func removeTopicFromUser(userTopicId: String) async throws {
+    public func removeTopicFromUser(userTopicId: String) async throws {
         let request = APIRequest(
             method: .DELETE,
             path: "/user/topics/\(userTopicId)"
@@ -448,13 +448,13 @@ private extension APIService {
     }
     
     /// Convenience method to get available topics excluding those the user already has
-    func getAvailableTopicsForUser(userId: String) async throws -> [AvailableTopic] {
+    public func getAvailableTopicsForUser(userId: String) async throws -> [AvailableTopic] {
         let response = try await getAvailableTopics(excludeUserId: userId)
         return response.topics
     }
     
     /// Convenience method to get user topics as Topic models for UI compatibility
-    func getUserTopicsAsTopicModels(userId: String) async throws -> [Topic] {
+    public func getUserTopicsAsTopicModels(userId: String) async throws -> [Topic] {
         let response = try await getUserTopics(userId: userId)
         return response.topics.map { $0.toTopic() }
     }

@@ -208,7 +208,7 @@ struct UpdateTopicWeightRequest: Codable {
 // MARK: - UI Helper Models
 
 /// Represents the state of topic management operations
-enum TopicManagementState {
+enum TopicManagementState: Equatable {
     case idle
     case loading
     case loaded

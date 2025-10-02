@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Validation schemas
 const addTopicSchema = z.object({
-  topicId: z.string().uuid(),
+  topicId: z.string().min(1),
   weight: z.number().min(0).max(100).default(50),
 });
 
