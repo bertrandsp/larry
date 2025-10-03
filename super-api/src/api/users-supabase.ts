@@ -183,47 +183,7 @@ router.put('/user/profile', async (req, res) => {
   }
 });
 
-// GET /daily - Get daily word for user (simplified version)
-router.get('/daily', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authorization header required' });
-    }
-
-    const token = authHeader.substring(7);
-    const userIdMatch = token.match(/access_([^_]+)_/);
-    
-    if (!userIdMatch) {
-      return res.status(401).json({ error: 'Invalid access token' });
-    }
-
-    const userId = userIdMatch[1];
-
-    // For now, return a mock daily word
-    // In the full implementation, this would use the vocabulary generation system
-    const mockDailyWord = {
-      id: `daily-${Date.now()}`,
-      term: "serendipity",
-      definition: "The occurrence and development of events by chance in a happy or beneficial way",
-      example: "A fortunate stroke of serendipity brought the two old friends together at the airport.",
-      difficulty: "intermediate",
-      topic: "general",
-      created_at: new Date().toISOString()
-    };
-
-    res.json({
-      success: true,
-      daily_word: mockDailyWord,
-      user_id: userId
-    });
-
-  } catch (error: any) {
-    console.error('Error fetching daily word:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// Note: /daily endpoint moved to daily-supabase.ts for proper implementation
 
 // POST /actions/favorite - Favorite a word
 router.post('/actions/favorite', async (req, res) => {
