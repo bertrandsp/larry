@@ -288,6 +288,11 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
       // Add to wordbank
       const wordbankEntry = await addToWordbank(userId, selectedTerm.id);
 
+      if (!wordbankEntry) {
+        console.error('❌ Failed to create or retrieve wordbank entry');
+        return null;
+      }
+
       // Get related facts
       const facts = await getFactsForTopic(selectedTerm.topicId);
 
@@ -376,6 +381,19 @@ async function createDelivery(userId: string, termId: string): Promise<any> {
 async function addToWordbank(userId: string, termId: string): Promise<any> {
   try {
     if (!supabase) return null;
+
+    // First, check if wordbank entry already exists
+    const { data: existingEntry } = await supabase
+      .from('Wordbank')
+      .select('*')
+      .eq('userId', userId)
+      .eq('termId', termId)
+      .single();
+
+    if (existingEntry) {
+      console.log(`📚 Wordbank entry already exists for term ${termId}`);
+      return existingEntry;
+    }
 
     const wordbankData = {
       id: `wordbank-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
