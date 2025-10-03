@@ -13,6 +13,7 @@ struct TopicManagementView: View {
     @StateObject private var viewModel: TopicManagementViewModel
     @State private var showingAddTopicSheet = false
     @State private var showingAutoBalanceAlert = false
+    @State private var hasAppeared = false
     
     init() {
         // Initialize with the current user ID from AuthManager
@@ -23,12 +24,18 @@ struct TopicManagementView: View {
         print("🔍 TopicManagementView: Using userId = \(userId)")
         #endif
         
-        self._viewModel = StateObject(wrappedValue: TopicManagementViewModel(userId: userId))
+        let viewModel = TopicManagementViewModel(userId: userId)
+        // Force initial state to loading
+        viewModel.state = .loading
+        self._viewModel = StateObject(wrappedValue: viewModel)
     }
     
     var body: some View {
         #if DEBUG
         let _ = print("🔍 TopicManagementView: body computed - viewModel.state = \(viewModel.state)")
+        let _ = print("🔍 TopicManagementView: body computed - userTopics.count = \(viewModel.userTopics.count)")
+        let _ = print("🔍 TopicManagementView: body computed - availableTopics.count = \(viewModel.availableTopics.count)")
+        let _ = print("🔍 TopicManagementView: body computed - hasAppeared = \(hasAppeared)")
         #endif
         
         NavigationView {
@@ -36,9 +43,9 @@ struct TopicManagementView: View {
                 switch viewModel.state {
                 case .idle:
                     #if DEBUG
-                    let _ = print("🔍 TopicManagementView: Showing .idle state (EmptyView)")
+                    let _ = print("🔍 TopicManagementView: Showing .idle state (TopicLoadingView)")
                     #endif
-                    EmptyView()
+                    TopicLoadingView()
                 case .loading:
                     #if DEBUG
                     let _ = print("🔍 TopicManagementView: Showing .loading state (TopicLoadingView)")
@@ -94,11 +101,28 @@ struct TopicManagementView: View {
             } message: {
                 Text("This will automatically distribute weights evenly across all enabled topics to total 100%.")
             }
-            .task {
+            .onAppear {
                 #if DEBUG
-                print("🔍 TopicManagementView: .task modifier executing - calling loadTopics()")
+                print("🔍 TopicManagementView: .onAppear called - hasAppeared: \(hasAppeared)")
+                print("🔍 TopicManagementView: Current state: \(viewModel.state)")
+                print("🔍 TopicManagementView: User topics count: \(viewModel.userTopics.count)")
+                print("🔍 TopicManagementView: Available topics count: \(viewModel.availableTopics.count)")
                 #endif
-                await viewModel.loadTopics()
+                
+                // Only load topics on the first appearance
+                if !hasAppeared {
+                    hasAppeared = true
+                    #if DEBUG
+                    print("🔍 TopicManagementView: First appearance - calling loadTopics()")
+                    #endif
+                    Task {
+                        await viewModel.loadTopics()
+                    }
+                } else {
+                    #if DEBUG
+                    print("🔍 TopicManagementView: Already appeared - skipping loadTopics()")
+                    #endif
+                }
             }
         }
     }

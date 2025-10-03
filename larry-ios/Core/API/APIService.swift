@@ -94,7 +94,14 @@ class APIService: ObservableObject {
             let queryPart = String(request.path[request.path.index(after: queryIndex)...])
             
             urlComponents.path = pathPart
-            urlComponents.query = queryPart
+            
+            // Parse query parameters properly
+            let queryItems = queryPart.components(separatedBy: "&").compactMap { pair -> URLQueryItem? in
+                let components = pair.components(separatedBy: "=")
+                guard components.count == 2 else { return nil }
+                return URLQueryItem(name: components[0], value: components[1])
+            }
+            urlComponents.queryItems = queryItems
         } else {
             urlComponents.path = request.path
         }

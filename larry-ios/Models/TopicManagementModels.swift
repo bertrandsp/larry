@@ -90,8 +90,8 @@ struct UserTopic: Codable, Identifiable {
     let enabled: Bool
     let termCount: Int
     let category: String?
-    let createdAt: String?
-    let updatedAt: String?
+    let createdAt: String? = nil
+    let updatedAt: String? = nil
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -101,8 +101,7 @@ struct UserTopic: Codable, Identifiable {
         case enabled
         case termCount = "termCount"
         case category
-        case createdAt = "createdAt"
-        case updatedAt = "updatedAt"
+        // createdAt and updatedAt are not returned by the backend, so we don't include them in CodingKeys
     }
     
     /// Convert to Topic model for UI compatibility
@@ -115,8 +114,8 @@ struct UserTopic: Codable, Identifiable {
             weight: weight,
             isBoostActive: false,
             boostEndDate: nil,
-            createdAt: ISO8601DateFormatter().date(from: createdAt ?? "") ?? Date(),
-            updatedAt: ISO8601DateFormatter().date(from: updatedAt ?? "") ?? Date()
+            createdAt: Date(), // Use current date since backend doesn't provide createdAt
+            updatedAt: Date()  // Use current date since backend doesn't provide updatedAt
         )
         
         return Topic(
@@ -128,8 +127,8 @@ struct UserTopic: Codable, Identifiable {
             colorHex: nil,
             isActive: enabled,
             termCount: termCount,
-            createdAt: ISO8601DateFormatter().date(from: createdAt ?? "") ?? Date(),
-            updatedAt: ISO8601DateFormatter().date(from: updatedAt ?? "") ?? Date(),
+            createdAt: Date(), // Use current date since backend doesn't provide createdAt
+            updatedAt: Date(), // Use current date since backend doesn't provide updatedAt
             userTopicWeight: userWeight
         )
     }
@@ -278,9 +277,7 @@ extension UserTopic {
         weight: 75,
         enabled: true,
         termCount: 156,
-        category: "technology",
-        createdAt: "2024-08-15T10:30:00Z",
-        updatedAt: "2024-09-20T14:45:00Z"
+        category: "technology"
     )
     
     static let previewDataList: [UserTopic] = [
@@ -292,9 +289,7 @@ extension UserTopic {
             weight: 50,
             enabled: true,
             termCount: 89,
-            category: "travel",
-            createdAt: "2024-08-20T12:15:00Z",
-            updatedAt: "2024-09-18T16:20:00Z"
+            category: "travel"
         ),
         UserTopic(
             id: "preview-user-topic-3",
@@ -303,9 +298,7 @@ extension UserTopic {
             weight: 25,
             enabled: false,
             termCount: 203,
-            category: "arts",
-            createdAt: "2024-07-10T14:30:00Z",
-            updatedAt: "2024-09-15T09:45:00Z"
+            category: "arts"
         )
     ]
 }

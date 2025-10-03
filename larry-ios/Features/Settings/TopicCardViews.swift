@@ -251,9 +251,7 @@ struct PopularBadge: View {
             weight: 25,
             enabled: false,
             termCount: 89,
-            category: "other",
-            createdAt: "2024-08-15T10:30:00Z",
-            updatedAt: "2024-09-20T14:45:00Z"
+            category: "other"
         ),
         viewModel: TopicManagementViewModel.preview()
     )

@@ -24,6 +24,7 @@ class TopicManagementViewModel: ObservableObject {
     private let apiService: APIService
     private var cancellables = Set<AnyCancellable>()
     private let userId: String // In a real app, this would come from AuthManager
+    private var isLoading = false
     
     // MARK: - Initialization
     
@@ -44,6 +45,23 @@ class TopicManagementViewModel: ObservableObject {
         print("🔍 TopicManagementViewModel: loadTopics() method called")
         #endif
         
+        // Prevent multiple simultaneous loading attempts
+        guard !isLoading else {
+            #if DEBUG
+            print("🔍 TopicManagementViewModel: Already loading, skipping duplicate request")
+            #endif
+            return
+        }
+        
+        // If we already have data and we're in a loaded state, don't reload unless explicitly requested
+        if state == .loaded && !userTopics.isEmpty && !availableTopics.isEmpty {
+            #if DEBUG
+            print("🔍 TopicManagementViewModel: Already have data, skipping reload")
+            #endif
+            return
+        }
+        
+        isLoading = true
         state = .loading
         errorMessage = nil
         
@@ -79,6 +97,8 @@ class TopicManagementViewModel: ObservableObject {
             #endif
             await handleError(error)
         }
+        
+        isLoading = false
     }
     
     /// Load only user topics
@@ -129,9 +149,7 @@ class TopicManagementViewModel: ObservableObject {
                 weight: response.userTopic.weight,
                 enabled: response.userTopic.enabled,
                 termCount: response.userTopic.topic.termCount,
-                category: response.userTopic.topic.category,
-                createdAt: response.userTopic.createdAt,
-                updatedAt: response.userTopic.updatedAt
+                category: response.userTopic.topic.category
             )
             
             // Update local state
@@ -206,8 +224,18 @@ class TopicManagementViewModel: ObservableObject {
         }
     }
     
-    /// Refresh all data
+    /// Refresh all data (forces reload even if data exists)
     func refresh() async {
+        #if DEBUG
+        print("🔍 TopicManagementViewModel: refresh() called - forcing reload")
+        #endif
+        
+        // Reset loading state and force reload
+        isLoading = false
+        userTopics = []
+        availableTopics = []
+        state = .loading
+        
         await loadTopics()
     }
     
@@ -304,6 +332,14 @@ class TopicManagementViewModel: ObservableObject {
     // MARK: - Private Methods
     
     private func handleError(_ error: Error) async {
+        // Don't show cancellation errors as they're expected when views disappear
+        if error.localizedDescription.contains("cancelled") {
+            #if DEBUG
+            print("🔍 TopicManagementViewModel: Request was cancelled (expected)")
+            #endif
+            return
+        }
+        
         state = .error(error.localizedDescription)
         errorMessage = error.localizedDescription
         
