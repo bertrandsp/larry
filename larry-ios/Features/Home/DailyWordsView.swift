@@ -3,7 +3,9 @@ import SwiftUI
 struct DailyWordsView: View {
     @EnvironmentObject var viewModel: HomeViewModel
     @State private var currentWords: [DailyWord] = []
-    @State private var isLoadingNext = false
+    @State private var preloadedWords: [DailyWord] = []
+    @State private var isPreloading = false
+    @State private var currentIndex: Int = 0
     
     var body: some View {
         GeometryReader { geometry in
@@ -41,11 +43,23 @@ struct DailyWordsView: View {
                                 .padding(.horizontal)
                         }
                     } else {
-                        // Use currentWords for display, initialize with first response if empty
-                        let wordsToShow = currentWords.isEmpty ? response.words : currentWords
+                        // Use currentWords + preloadedWords for display
+                        let wordsToShow = currentWords.isEmpty ? response.words : (currentWords + preloadedWords)
                         
                         // Convert DailyWord to VocabularyCard and display
-                        VerticalTabView(onSwipeToNext: loadNextWord) {
+                        VerticalTabView(
+                            cardCount: wordsToShow.count,
+                            onSwipeToNext: { await handleSwipeToNext() },
+                            onCardChanged: { index in
+                                currentIndex = index
+                                // Trigger preload when nearing the end
+                                if index >= wordsToShow.count - 2 {
+                                    Task {
+                                        await preloadNextWords()
+                                    }
+                                }
+                            }
+                        ) {
                             ForEach(Array(wordsToShow.enumerated()), id: \.element.id) { index, dailyWord in
                                 let vocabularyCard = convertToVocabularyCard(from: dailyWord)
                                 
@@ -56,16 +70,6 @@ struct DailyWordsView: View {
                                 )
                                 .frame(width: geometry.size.width, height: screenHeight)
                                 .id(index)
-                                .overlay(
-                                    // Loading indicator for next word
-                                    isLoadingNext ? 
-                                    ProgressView()
-                                        .scaleEffect(1.5)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .background(Color.black.opacity(0.3))
-                                    : nil
-                                )
                             }
                         }
                     }
@@ -112,31 +116,61 @@ struct DailyWordsView: View {
         await viewModel.loadDailyWords()
         if case .success(let response) = viewModel.dailyWords {
             currentWords = response.words
+            // Preload first 2 words immediately
+            await preloadNextWords(count: 2)
         }
     }
     
-    private func loadNextWord() async {
-        guard !isLoadingNext else { return }
+    private func handleSwipeToNext() async {
+        // User swiped to next, ensure we have preloaded words
+        if preloadedWords.isEmpty {
+            await preloadNextWords(count: 1)
+        }
+    }
+    
+    private func preloadNextWords(count: Int = 2) async {
+        guard !isPreloading else { return }
         
-        isLoadingNext = true
+        isPreloading = true
         
         do {
-            let response = try await APIService.shared.getNextUnseenWord()
-            if !response.words.isEmpty {
-                // Add the new word to current words
-                currentWords.append(response.words[0])
+            // Load multiple words at once
+            var newWords: [DailyWord] = []
+            
+            for _ in 0..<count {
+                let response = try await APIService.shared.getNextUnseenWord()
+                if !response.words.isEmpty {
+                    newWords.append(response.words[0])
+                    
+                    #if DEBUG
+                    print("🚀 Preloaded word: \(response.words[0].term.term)")
+                    #endif
+                }
+            }
+            
+            // Add preloaded words to the cache
+            if !newWords.isEmpty {
+                // Move current preloaded words to current words if user already swiped past them
+                if currentIndex >= currentWords.count {
+                    let wordsToMove = preloadedWords.prefix(currentIndex - currentWords.count + 1)
+                    currentWords.append(contentsOf: wordsToMove)
+                    preloadedWords.removeFirst(wordsToMove.count)
+                }
+                
+                // Add new words to preloaded cache
+                preloadedWords.append(contentsOf: newWords)
                 
                 #if DEBUG
-                print("✅ Loaded next unseen word: \(response.words[0].term.term)")
+                print("✅ Preloading complete: \(preloadedWords.count) words cached")
                 #endif
             }
         } catch {
             #if DEBUG
-            print("❌ Failed to load next unseen word: \(error)")
+            print("❌ Failed to preload words: \(error)")
             #endif
         }
         
-        isLoadingNext = false
+        isPreloading = false
     }
     
     private func convertToVocabularyCard(from dailyWord: DailyWord) -> VocabularyCard {

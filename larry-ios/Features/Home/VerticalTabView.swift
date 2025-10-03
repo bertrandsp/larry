@@ -10,15 +10,17 @@ struct VerticalTabView<Content: View>: View {
     let content: () -> Content
     let cardCount: Int
     let onSwipeToNext: (() async -> Void)?
+    let onCardChanged: ((Int) -> Void)?
     @State private var currentIndex: Int = 0
     @State private var scrollMode: ScrollMode = .progressive
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
     @State private var dragStartTime: Date = Date()
     
-    init(cardCount: Int = 5, onSwipeToNext: (() async -> Void)? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(cardCount: Int = 5, onSwipeToNext: (() async -> Void)? = nil, onCardChanged: ((Int) -> Void)? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.cardCount = cardCount
         self.onSwipeToNext = onSwipeToNext
+        self.onCardChanged = onCardChanged
         self.content = content
     }
     
@@ -161,6 +163,7 @@ struct VerticalTabView<Content: View>: View {
         if targetIndex != currentIndex {
             // Snap to next/previous card
             currentIndex = targetIndex
+            onCardChanged?(currentIndex)
             
             withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
                 dragOffset = 0
