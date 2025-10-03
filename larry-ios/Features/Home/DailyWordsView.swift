@@ -100,7 +100,7 @@ struct DailyWordsView: View {
             pronunciation: dailyWord.term.pronunciation ?? "",
             partOfSpeech: dailyWord.term.partOfSpeech ?? "",
             definition: dailyWord.term.definition,
-            example: dailyWord.term.example,
+            example: dailyWord.term.example ?? "",
             imageUrl: nil,
             synonyms: dailyWord.term.synonyms,
             antonyms: dailyWord.term.antonyms,
