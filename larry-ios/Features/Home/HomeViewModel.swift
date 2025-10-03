@@ -185,9 +185,7 @@ class HomeViewModel: ObservableObject {
             #endif
             firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
                 success: true,
-                firstVocabGenerated: true,
                 dailyWord: nil,
-                userProgress: nil,
                 message: "First vocab already generated"
             ))
             return
@@ -211,9 +209,7 @@ class HomeViewModel: ObservableObject {
             // Don't use mock data - just set success with no daily word
             firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
                 success: true,
-                firstVocabGenerated: true,
                 dailyWord: nil,
-                userProgress: nil,
                 message: "First vocab already generated"
             ))
         }
