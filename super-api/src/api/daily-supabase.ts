@@ -34,15 +34,54 @@ router.get('/daily', async (req, res) => {
       });
     }
 
-    res.json({
+    // Convert to iOS app expected format
+    const iosDailyWord = {
+      id: dailyWord.id,
+      user_id: userId, // Extract from token
+      term: {
+        id: dailyWord.id,
+        term: dailyWord.term,
+        definition: dailyWord.definition,
+        example: dailyWord.example,
+        pronunciation: dailyWord.pronunciation || null,
+        partOfSpeech: dailyWord.partOfSpeech || null,
+        difficulty: dailyWord.difficulty || null,
+        etymology: dailyWord.etymology || null,
+        synonyms: dailyWord.synonyms || [],
+        antonyms: dailyWord.antonyms || [],
+        relatedTerms: (dailyWord.relatedTerms || []).map((rt: any) => ({
+          term: rt.term,
+          difference: rt.difference
+        })),
+        tags: dailyWord.tags || [],
+        category: dailyWord.category || null,
+        complexityLevel: dailyWord.complexityLevel || null,
+        source: dailyWord.source || null,
+        confidenceScore: dailyWord.confidenceScore || null,
+        topicId: dailyWord.topic || null, // Use topic name as topicId for now
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userProgress: null
+      },
+      delivery_date: dailyWord.delivery.deliveredAt,
+      is_review: dailyWord.isReview,
+      spaced_repetition_bucket: dailyWord.wordbank.bucket,
+      ai_explanation: `This ${dailyWord.complexityLevel.toLowerCase()} vocabulary word from ${dailyWord.topic} will help expand your professional vocabulary.`,
+      contextual_example: dailyWord.example,
+      created_at: new Date().toISOString(),
+      user_interaction: null
+    };
+
+    const iosResponse = {
       success: true,
-      dailyWord: dailyWord,
-      userProgress: {
-        wordsLearned: dailyWord.userProgress?.wordsLearned || 1,
-        streak: dailyWord.userProgress?.streak || 1,
-        level: dailyWord.userProgress?.level || 'Beginner'
-      }
-    });
+      words: [iosDailyWord],
+      total_count: 1,
+      remaining_today: 2,
+      next_delivery_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      streak_count: 1
+    };
+
+    res.json(iosResponse);
 
   } catch (error: any) {
     console.error('❌ Error getting daily word:', error);
