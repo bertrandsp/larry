@@ -145,7 +145,7 @@ async function getNextReviewWord(userId: string): Promise<DailyWord | null> {
       facts,
       delivery: {
         id: delivery.id,
-        deliveredAt: delivery.deliveredAt
+        deliveredAt: new Date(delivery.deliveredAt).toISOString()
       },
       wordbank: {
         id: wordbankEntry.id,

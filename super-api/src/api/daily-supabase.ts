@@ -63,7 +63,7 @@ router.get('/daily', async (req, res) => {
         updatedAt: new Date().toISOString(),
         userProgress: null
       },
-      delivery_date: dailyWord.delivery.deliveredAt,
+      delivery_date: new Date(dailyWord.delivery.deliveredAt).toISOString(),
       is_review: dailyWord.isReview,
       spaced_repetition_bucket: dailyWord.wordbank.bucket,
       ai_explanation: `This ${dailyWord.complexityLevel.toLowerCase()} vocabulary word from ${dailyWord.topic} will help expand your professional vocabulary.`,
