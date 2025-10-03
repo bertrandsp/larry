@@ -88,6 +88,37 @@ export async function getNextDailyWord(userId: string): Promise<DailyWord | null
 }
 
 /**
+ * Get the next unseen word for a user (for swipe-to-next functionality)
+ */
+export async function getNextUnseenWord(userId: string): Promise<DailyWord | null> {
+  console.log(`🎯 Getting next unseen word for user ${userId}`);
+  
+  try {
+    if (!supabase) {
+      console.error('❌ Supabase client not initialized');
+      return null;
+    }
+
+    // Set user context for RLS
+    await supabase.rpc('set_current_user_id', { user_id: userId });
+
+    // Get a completely new word that user hasn't seen before
+    const newWord = await getNewWordFromUserTopics(userId);
+    if (newWord) {
+      console.log(`🆕 Returning unseen word: ${newWord.term}`);
+      return newWord;
+    }
+
+    console.log('⚠️ No unseen words available for user');
+    return null;
+
+  } catch (error: any) {
+    console.error('❌ Error getting next unseen word:', error);
+    return null;
+  }
+}
+
+/**
  * Get the next word due for review using spaced repetition
  */
 async function getNextReviewWord(userId: string): Promise<DailyWord | null> {
@@ -189,7 +220,7 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
     // Get topic IDs
     const topicIds = user.topics.map((ut: any) => ut.topicId);
 
-    // Find terms from user's topics that aren't already in wordbank
+    // Find terms from user's topics that aren't already seen (in wordbank or delivered)
     const { data: existingWordbank, error: wordbankError } = await supabase
       .from('Wordbank')
       .select('termId')
@@ -200,9 +231,21 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
       return null;
     }
 
-    const existingTermIds = existingWordbank?.map(w => w.termId) || [];
+    const { data: deliveredTerms, error: deliveryError } = await supabase
+      .from('Delivery')
+      .select('termId')
+      .eq('userId', userId);
 
-    // Get available terms from user's topics
+    if (deliveryError) {
+      console.error('❌ Error fetching delivered terms:', deliveryError);
+      return null;
+    }
+
+    const existingTermIds = existingWordbank?.map(w => w.termId) || [];
+    const deliveredTermIds = deliveredTerms?.map(d => d.termId) || [];
+    const allSeenTermIds = [...new Set([...existingTermIds, ...deliveredTermIds])]; // Remove duplicates
+
+    // Get available terms from user's topics that haven't been seen
     let { data: availableTerms, error: termsError } = await supabase
       .from('Term')
       .select(`
@@ -211,7 +254,7 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
       `)
       .in('topicId', topicIds)
       .eq('moderationStatus', 'approved')
-      .not('id', 'in', `(${existingTermIds.join(',')})`)
+      .not('id', 'in', `(${allSeenTermIds.join(',')})`)
       .order('createdAt', { ascending: false })
       .limit(10);
 

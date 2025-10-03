@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DailyWordsView: View {
     @EnvironmentObject var viewModel: HomeViewModel
+    @State private var currentWords: [DailyWord] = []
+    @State private var isLoadingNext = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -21,7 +23,7 @@ struct DailyWordsView: View {
                         .foregroundColor(.white)
                     
                 case .success(let response):
-                    if response.words.isEmpty {
+                    if response.words.isEmpty && currentWords.isEmpty {
                         VStack(spacing: 20) {
                             Image(systemName: "book.closed")
                                 .font(.system(size: 60))
@@ -39,9 +41,12 @@ struct DailyWordsView: View {
                                 .padding(.horizontal)
                         }
                     } else {
+                        // Use currentWords for display, initialize with first response if empty
+                        let wordsToShow = currentWords.isEmpty ? response.words : currentWords
+                        
                         // Convert DailyWord to VocabularyCard and display
-                        VerticalTabView {
-                            ForEach(Array(response.words.enumerated()), id: \.element.id) { index, dailyWord in
+                        VerticalTabView(onSwipeToNext: loadNextWord) {
+                            ForEach(Array(wordsToShow.enumerated()), id: \.element.id) { index, dailyWord in
                                 let vocabularyCard = convertToVocabularyCard(from: dailyWord)
                                 
                                 VocabularyCardView(
@@ -51,6 +56,16 @@ struct DailyWordsView: View {
                                 )
                                 .frame(width: geometry.size.width, height: screenHeight)
                                 .id(index)
+                                .overlay(
+                                    // Loading indicator for next word
+                                    isLoadingNext ? 
+                                    ProgressView()
+                                        .scaleEffect(1.5)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .background(Color.black.opacity(0.3))
+                                    : nil
+                                )
                             }
                         }
                     }
@@ -88,9 +103,40 @@ struct DailyWordsView: View {
         .ignoresSafeArea(.all, edges: .top)
         .onAppear {
             Task {
-                await viewModel.loadDailyWords()
+                await loadInitialWords()
             }
         }
+    }
+    
+    private func loadInitialWords() async {
+        await viewModel.loadDailyWords()
+        if case .success(let response) = viewModel.dailyWords {
+            currentWords = response.words
+        }
+    }
+    
+    private func loadNextWord() async {
+        guard !isLoadingNext else { return }
+        
+        isLoadingNext = true
+        
+        do {
+            let response = try await APIService.shared.getNextUnseenWord()
+            if !response.words.isEmpty {
+                // Add the new word to current words
+                currentWords.append(response.words[0])
+                
+                #if DEBUG
+                print("✅ Loaded next unseen word: \(response.words[0].term.term)")
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            print("❌ Failed to load next unseen word: \(error)")
+            #endif
+        }
+        
+        isLoadingNext = false
     }
     
     private func convertToVocabularyCard(from dailyWord: DailyWord) -> VocabularyCard {

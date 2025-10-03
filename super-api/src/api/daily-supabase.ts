@@ -1,5 +1,5 @@
 import express from 'express';
-import { getNextDailyWord, recordDailyWordAction } from '../services/dailySupabase';
+import { getNextDailyWord, getNextUnseenWord, recordDailyWordAction } from '../services/dailySupabase';
 
 const router = express.Router();
 
@@ -88,6 +88,96 @@ router.get('/daily', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get daily word',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /daily/next - Get next unseen word for user (for swipe functionality)
+ */
+router.get('/daily/next', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization header required' });
+    }
+
+    const token = authHeader.substring(7);
+    const userIdMatch = token.match(/access_([^_]+)_/);
+    
+    if (!userIdMatch) {
+      return res.status(401).json({ error: 'Invalid access token' });
+    }
+
+    const userId = userIdMatch[1];
+    
+    console.log('🎯 Getting next unseen word for user:', userId);
+
+    const dailyWord = await getNextUnseenWord(userId);
+
+    if (!dailyWord) {
+      return res.status(400).json({ 
+        error: 'Unable to get next unseen word',
+        message: 'Please check that you have topics selected and onboarding is completed'
+      });
+    }
+
+    // Convert to iOS app expected format
+    const iosDailyWord = {
+      id: dailyWord.id,
+      user_id: userId,
+      term: {
+        id: dailyWord.id,
+        term: dailyWord.term,
+        definition: dailyWord.definition,
+        example: dailyWord.example,
+        pronunciation: dailyWord.pronunciation || null,
+        partOfSpeech: dailyWord.partOfSpeech || null,
+        difficulty: dailyWord.difficulty || null,
+        etymology: dailyWord.etymology || null,
+        synonyms: dailyWord.synonyms || [],
+        antonyms: dailyWord.antonyms || [],
+        relatedTerms: (dailyWord.relatedTerms || []).map((rt: any) => ({
+          term: rt.term,
+          difference: rt.difference
+        })),
+        tags: dailyWord.tags || [],
+        category: dailyWord.category || null,
+        complexityLevel: dailyWord.complexityLevel || null,
+        source: dailyWord.source || null,
+        confidenceScore: dailyWord.confidenceScore || null,
+        topicId: dailyWord.topic || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userProgress: null
+      },
+      delivery_date: new Date(dailyWord.delivery.deliveredAt).toISOString(),
+      is_review: dailyWord.isReview,
+      spaced_repetition_bucket: dailyWord.wordbank.bucket,
+      ai_explanation: `This ${dailyWord.complexityLevel.toLowerCase()} vocabulary word from ${dailyWord.topic} will help expand your professional vocabulary.`,
+      contextual_example: dailyWord.example,
+      created_at: new Date().toISOString(),
+      user_interaction: null
+    };
+
+    const iosResponse = {
+      success: true,
+      words: [iosDailyWord],
+      total_count: 1,
+      remaining_today: 999, // Indicate unlimited for swipe functionality
+      next_delivery_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      streak_count: 1
+    };
+
+    res.json(iosResponse);
+
+  } catch (error: any) {
+    console.error('❌ Error getting next unseen word:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get next unseen word',
       message: error.message
     });
   }

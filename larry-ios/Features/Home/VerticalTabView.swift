@@ -9,14 +9,16 @@ enum ScrollMode {
 struct VerticalTabView<Content: View>: View {
     let content: () -> Content
     let cardCount: Int
+    let onSwipeToNext: (() async -> Void)?
     @State private var currentIndex: Int = 0
     @State private var scrollMode: ScrollMode = .progressive
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
     @State private var dragStartTime: Date = Date()
     
-    init(cardCount: Int = 5, @ViewBuilder content: @escaping () -> Content) {
+    init(cardCount: Int = 5, onSwipeToNext: (() async -> Void)? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.cardCount = cardCount
+        self.onSwipeToNext = onSwipeToNext
         self.content = content
     }
     
@@ -147,6 +149,12 @@ struct VerticalTabView<Content: View>: View {
         } else if shouldSnapUp && currentIndex < cardCount - 1 {
             // Swipe up - go to next card
             targetIndex = currentIndex + 1
+        } else if shouldSnapUp && currentIndex >= cardCount - 1 {
+            // Swipe up when at the last card - load next word
+            Task {
+                await onSwipeToNext?()
+            }
+            return // Don't animate, just load next word
         }
         
         // Animate to target position

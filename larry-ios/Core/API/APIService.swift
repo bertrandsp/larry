@@ -228,6 +228,16 @@ class APIService: ObservableObject {
         return try await send(request, responseType: EnhancedFirstDailyWordResponse.self)
     }
     
+    /// Get the next unseen word for swipe functionality
+    func getNextUnseenWord() async throws -> DailyWordsResponse {
+        let request = APIRequest(
+            method: .GET,
+            path: "/daily/next"
+        )
+        
+        return try await send(request, responseType: DailyWordsResponse.self)
+    }
+    
     /// Track user action on a delivered word
     func trackDeliveryAction(deliveryId: String, action: DeliveryAction, wordbankId: String? = nil) async throws -> DeliveryActionResponse {
         let requestBody = DeliveryActionRequest(
