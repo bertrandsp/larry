@@ -178,6 +178,21 @@ class HomeViewModel: ObservableObject {
             return
         }
         
+        // Skip first daily word for users who have already completed onboarding
+        guard let user = AuthManager.shared.currentUser, !user.onboardingCompleted else {
+            #if DEBUG
+            print("✅ User has completed onboarding, skipping first daily word")
+            #endif
+            firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
+                success: true,
+                firstVocabGenerated: true,
+                dailyWord: nil,
+                userProgress: nil,
+                message: "First vocab already generated"
+            ))
+            return
+        }
+        
         firstDailyWord.setLoading()
         
         do {
@@ -193,20 +208,14 @@ class HomeViewModel: ObservableObject {
             print("❌ Failed to load first daily word: \(error)")
             #endif
             
-            // Use mock data in debug mode if API fails
-            #if DEBUG
-            if error is NetworkError {
-                firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
-                    success: true,
-                    dailyWord: FirstDailyWord.previewData,
-                    message: "Mock data for development"
-                ))
-                print("🔄 Using mock data for first daily word")
-                return
-            }
-            #endif
-            
-            firstDailyWord.setError(error)
+            // Don't use mock data - just set success with no daily word
+            firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
+                success: true,
+                firstVocabGenerated: true,
+                dailyWord: nil,
+                userProgress: nil,
+                message: "First vocab already generated"
+            ))
         }
     }
     
