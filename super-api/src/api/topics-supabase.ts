@@ -30,6 +30,7 @@ router.get('/topics/available', async (req, res) => {
         id,
         name,
         description,
+        category,
         isActive,
         userTopics:UserTopic(count),
         terms:Term(count)
@@ -69,7 +70,7 @@ router.get('/topics/available', async (req, res) => {
         id: topic.id,
         name: topic.name,
         description: topic.description,
-        category: 'other', // Default category since we removed it from query
+        category: topic.category || 'other', // Use real category data
         isActive: topic.isActive,
         termCount,
         userCount,
@@ -122,6 +123,7 @@ router.get('/user/:userId/topics', async (req, res) => {
           id,
           name,
           description,
+          category,
           isActive,
           terms:Term(count)
         )
@@ -146,7 +148,7 @@ router.get('/user/:userId/topics', async (req, res) => {
         weight: ut.weight,
         enabled: ut.enabled,
         termCount: terms.length || (topic?.terms as any)?.count || 0,
-        category: 'other' // Default category
+        category: topic?.category || 'other' // Use real category data
       };
     });
 
@@ -185,7 +187,7 @@ router.post('/user/:userId/topics/add', async (req, res) => {
     // Check if topic exists
     const { data: topic, error: topicError } = await supabase
       .from('Topic')
-      .select('id, name, description, isActive')
+      .select('id, name, description, category, isActive')
       .eq('id', topicId)
       .single();
 
@@ -254,7 +256,7 @@ router.post('/user/:userId/topics/add', async (req, res) => {
           id: topic.id,
           name: topic.name,
           description: topic.description,
-          category: 'other', // Default category
+          category: topic.category || 'other', // Use real category data
           termCount: termCount || 0
         }
       }

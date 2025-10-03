@@ -90,8 +90,6 @@ struct UserTopic: Codable, Identifiable {
     let enabled: Bool
     let termCount: Int
     let category: String?
-    let createdAt: String? = nil
-    let updatedAt: String? = nil
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -101,7 +99,6 @@ struct UserTopic: Codable, Identifiable {
         case enabled
         case termCount = "termCount"
         case category
-        // createdAt and updatedAt are not returned by the backend, so we don't include them in CodingKeys
     }
     
     /// Convert to Topic model for UI compatibility
