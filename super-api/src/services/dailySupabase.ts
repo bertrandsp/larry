@@ -649,7 +649,11 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
       difficulty: generatedTerm.difficulty,
       etymology: generatedTerm.etymology,
       pronunciation: generatedTerm.pronunciation,
-      tags: JSON.stringify([topicName, 'AI Generated'])
+      tags: JSON.stringify([topicName, 'AI Generated']),
+      verified: true,
+      gptGenerated: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     const { data: newTerm, error: insertError } = await supabase
@@ -663,6 +667,24 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
 
     if (insertError) {
       console.error('❌ Error inserting generated term:', insertError);
+      // If it's a duplicate key error, try to fetch the existing term
+      if (insertError.code === '23505') {
+        console.log('🔄 Duplicate key error, fetching existing term...');
+        const { data: existingTerm, error: fetchError } = await supabase
+          .from('Term')
+          .select(`
+            *,
+            topic:Topic(*)
+          `)
+          .eq('topicId', topic.id)
+          .eq('term', generatedTerm.term)
+          .single();
+        
+        if (existingTerm && !fetchError) {
+          console.log(`✅ Found existing term: ${existingTerm.term}`);
+          return existingTerm;
+        }
+      }
       return null;
     }
 

@@ -50,8 +50,8 @@ router.get('/daily', async (req, res) => {
         synonyms: dailyWord.synonyms || [],
         antonyms: dailyWord.antonyms || [],
         relatedTerms: (dailyWord.relatedTerms || []).map((rt: any) => ({
-          term: rt.term,
-          difference: rt.difference
+          term: rt.term || "Related term",
+          difference: rt.difference || "Related concept"
         })),
         tags: dailyWord.tags || [],
         category: dailyWord.category || null,
@@ -140,8 +140,8 @@ router.get('/daily/next', async (req, res) => {
         synonyms: dailyWord.synonyms || [],
         antonyms: dailyWord.antonyms || [],
         relatedTerms: (dailyWord.relatedTerms || []).map((rt: any) => ({
-          term: rt.term,
-          difference: rt.difference
+          term: rt.term || "Related term",
+          difference: rt.difference || "Related concept"
         })),
         tags: dailyWord.tags || [],
         category: dailyWord.category || null,
