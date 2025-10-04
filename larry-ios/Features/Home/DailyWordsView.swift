@@ -126,6 +126,23 @@ struct DailyWordsView: View {
         if preloadedWords.isEmpty {
             await preloadNextWords(count: 1)
         }
+        
+        // Move the next preloaded word to current words
+        if !preloadedWords.isEmpty {
+            let nextWord = preloadedWords.removeFirst()
+            currentWords.append(nextWord)
+            
+            #if DEBUG
+            print("🎯 Swiped to next word: \(nextWord.term.term)")
+            #endif
+            
+            // Trigger another preload to keep the buffer full
+            if preloadedWords.count < 2 {
+                Task {
+                    await preloadNextWords(count: 3)
+                }
+            }
+        }
     }
     
     private func preloadNextWords(count: Int = 2) async {
