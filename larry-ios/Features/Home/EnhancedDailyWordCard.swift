@@ -65,14 +65,22 @@ struct EnhancedDailyWordCard: View {
                     DifficultyBadge(difficulty: dailyWord.difficultyLevel)
                     
                     // Topic tag
-                    Text(dailyWord.topic)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.purple)
-                        .cornerRadius(6)
+                    if let topic = dailyWord.topic {
+                        Button(action: {
+                            // TODO: Navigate to topic details or interests screen
+                            print("Tapped topic: \(topic.name)")
+                        }) {
+                            Text(topic.name)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.purple)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
                 }
             }
             

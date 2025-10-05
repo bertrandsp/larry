@@ -60,6 +60,7 @@ model User {
 model Topic {
   id              String          @id @default(uuid())
   name            String          @unique
+  slug            String          @unique // URL-friendly identifier
   description     String? // Optional description for the topic
   category        String          @default("other") // Category for topic classification
   isCustom        Boolean         @default(false) // Whether this is a user-created topic

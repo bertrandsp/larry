@@ -7,11 +7,25 @@
 
 import Foundation
 
+/// Represents topic information for a term
+struct TopicInfo: Codable {
+    let id: String?
+    let name: String
+    let slug: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case slug
+    }
+}
+
 /// Represents a daily word delivery to the user
 struct DailyWord: Codable, Identifiable {
     let id: String
     let userId: String
     let term: Term
+    let topic: TopicInfo?
     let deliveryDate: Date
     let isReview: Bool // true if this is a spaced repetition review, false if new
     let spacedRepetitionBucket: Int?
@@ -26,6 +40,7 @@ struct DailyWord: Codable, Identifiable {
         case id
         case userId = "user_id"
         case term
+        case topic
         case deliveryDate = "delivery_date"
         case isReview = "is_review"
         case spacedRepetitionBucket = "spaced_repetition_bucket"
@@ -88,6 +103,7 @@ extension DailyWord {
         id: "preview-daily-word-1",
         userId: "preview-user-id",
         term: Term.previewData,
+        topic: TopicInfo(id: "tech-1", name: "Software Engineering", slug: "software-engineering"),
         deliveryDate: Date(),
         isReview: false,
         spacedRepetitionBucket: nil,
@@ -101,6 +117,7 @@ extension DailyWord {
         id: "preview-daily-word-2",
         userId: "preview-user-id",
         term: Term.previewDataList[1],
+        topic: TopicInfo(id: "business-1", name: "Business & Finance", slug: "business-finance"),
         deliveryDate: Date(),
         isReview: true,
         spacedRepetitionBucket: 2,

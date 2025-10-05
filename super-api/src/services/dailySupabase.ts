@@ -13,6 +13,8 @@ export interface DailyWord {
   sourceUrl?: string;
   confidenceScore: number;
   topic: string;
+  topicId?: string;
+  topicSlug?: string;
   
   // Rich vocabulary fields
   synonyms: string[];
@@ -165,6 +167,8 @@ async function getNextReviewWord(userId: string): Promise<DailyWord | null> {
       sourceUrl: term.sourceUrl,
       confidenceScore: term.confidenceScore || 0.95,
       topic: term.topic?.name || 'General Vocabulary',
+      topicId: term.topic?.id || null,
+      topicSlug: term.topic?.slug || (term.topic?.name ? term.topic.name.toLowerCase().replace(/\s+/g, '-') : 'general-vocabulary'),
       synonyms: enrichedTerm.synonyms,
       antonyms: enrichedTerm.antonyms,
       relatedTerms: enrichedTerm.relatedTerms,
@@ -295,6 +299,8 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
           sourceUrl: generatedTerm.sourceUrl,
           confidenceScore: generatedTerm.confidenceScore || 0.95,
           topic: generatedTerm.topic?.name || 'General Vocabulary',
+          topicId: generatedTerm.topic?.id || null,
+          topicSlug: generatedTerm.topic?.slug || (generatedTerm.topic?.name ? generatedTerm.topic.name.toLowerCase().replace(/\s+/g, '-') : 'general-vocabulary'),
           synonyms: enrichedTerm.synonyms,
           antonyms: enrichedTerm.antonyms,
           relatedTerms: enrichedTerm.relatedTerms,
@@ -353,6 +359,8 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
         sourceUrl: selectedTerm.sourceUrl,
         confidenceScore: selectedTerm.confidenceScore || 0.95,
         topic: selectedTerm.topic?.name || 'General Vocabulary',
+        topicId: selectedTerm.topic?.id || null,
+        topicSlug: selectedTerm.topic?.slug || (selectedTerm.topic?.name ? selectedTerm.topic.name.toLowerCase().replace(/\s+/g, '-') : 'general-vocabulary'),
         synonyms: enrichedTerm.synonyms,
         antonyms: enrichedTerm.antonyms,
         relatedTerms: enrichedTerm.relatedTerms,
@@ -645,10 +653,10 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
       synonyms: JSON.stringify(generatedTerm.synonyms || []),
       antonyms: JSON.stringify(generatedTerm.antonyms || []),
       relatedTerms: JSON.stringify(generatedTerm.relatedTerms || []),
-      partOfSpeech: generatedTerm.partOfSpeech,
-      difficulty: generatedTerm.difficulty,
+      partOfSpeech: (generatedTerm as any).partOfSpeech,
+      difficulty: (generatedTerm as any).difficulty,
       etymology: generatedTerm.etymology,
-      pronunciation: generatedTerm.pronunciation,
+      pronunciation: (generatedTerm as any).pronunciation,
       tags: JSON.stringify([topicName, 'AI Generated']),
       verified: true,
       gptGenerated: true,

@@ -63,6 +63,11 @@ router.get('/daily', async (req, res) => {
         updatedAt: new Date().toISOString(),
         userProgress: null
       },
+      topic: {
+        id: dailyWord.topicId || null,
+        name: dailyWord.topic || "General Vocabulary",
+        slug: dailyWord.topicSlug || (dailyWord.topic ? dailyWord.topic.toLowerCase().replace(/\s+/g, '-') : "general-vocabulary")
+      },
       delivery_date: new Date(dailyWord.delivery.deliveredAt).toISOString(),
       is_review: dailyWord.isReview,
       spaced_repetition_bucket: dailyWord.wordbank.bucket,
@@ -152,6 +157,11 @@ router.get('/daily/next', async (req, res) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         userProgress: null
+      },
+      topic: {
+        id: dailyWord.topicId || null,
+        name: dailyWord.topic || "General Vocabulary",
+        slug: dailyWord.topicSlug || (dailyWord.topic ? dailyWord.topic.toLowerCase().replace(/\s+/g, '-') : "general-vocabulary")
       },
       delivery_date: new Date(dailyWord.delivery.deliveredAt).toISOString(),
       is_review: dailyWord.isReview,

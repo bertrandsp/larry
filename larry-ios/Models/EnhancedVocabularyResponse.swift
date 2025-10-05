@@ -25,7 +25,7 @@ struct FirstDailyWord: Codable, Identifiable {
     let source: String?
     let sourceUrl: String?
     let confidenceScore: Double
-    let topic: String
+    let topic: TopicInfo?
     let facts: [VocabularyFact]
     let delivery: VocabularyDeliveryInfo
     let wordbank: VocabularyWordbankInfo
@@ -150,7 +150,7 @@ extension FirstDailyWord {
         source: "AI Generated",
         sourceUrl: nil,
         confidenceScore: 0.92,
-        topic: "Blockchain Development",
+        topic: TopicInfo(id: "blockchain-1", name: "Blockchain Development", slug: "blockchain-development"),
         facts: [
             VocabularyFact(id: "fact-1", fact: "Solidity was influenced by JavaScript, Python, and C++", category: "History"),
             VocabularyFact(id: "fact-2", fact: "First version was released in 2014", category: "Timeline")

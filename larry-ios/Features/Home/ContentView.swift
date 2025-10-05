@@ -275,6 +275,28 @@ private struct DailyWordCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Topic label at the top
+            if let topic = dailyWord.topic {
+                HStack {
+                    Button(action: {
+                        // TODO: Navigate to topic details or interests screen
+                        print("Tapped topic: \(topic.name)")
+                    }) {
+                        Text(topic.name)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.gray.opacity(0.15))
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Spacer()
+                }
+            }
+            
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(dailyWord.term.word)
