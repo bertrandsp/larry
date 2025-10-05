@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Enhanced daily word card with rich vocabulary features
 struct EnhancedDailyWordCard: View {
-    let dailyWord: FirstDailyWord
+    let dailyWord: DailyWord
     @State private var isExpanded = false
     @State private var showingSynonyms = false
     @State private var showingAntonyms = false
@@ -44,7 +44,7 @@ struct EnhancedDailyWordCard: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header Row - Term + Audio Button
             HStack {
-                Text(dailyWord.term)
+                Text(dailyWord.term.word)
                     .font(.title)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -54,7 +54,7 @@ struct EnhancedDailyWordCard: View {
                 // Audio pronunciation button
                 Button(action: {
                     // TODO: Play pronunciation using AVSpeechSynthesizer
-                    print("Playing pronunciation for: \(dailyWord.term)")
+                    print("Playing pronunciation for: \(dailyWord.term.word)")
                 }) {
                     Image(systemName: "speaker.wave.2.fill")
                         .font(.title3)
@@ -75,7 +75,7 @@ struct EnhancedDailyWordCard: View {
             }
             
             // Pronunciation
-            if let pronunciation = dailyWord.pronunciation {
+            if let pronunciation = dailyWord.term.pronunciation {
                 Text(pronunciation)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -103,16 +103,16 @@ struct EnhancedDailyWordCard: View {
     
     private var definitionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(dailyWord.definition)
+            Text(dailyWord.term.definition)
                 .font(.body)
                 .foregroundColor(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             
             // Additional Information Section (Expandable)
-            if dailyWord.example != nil || !dailyWord.synonyms.isEmpty || !dailyWord.antonyms.isEmpty {
+            if dailyWord.term.exampleSentence != nil || !dailyWord.term.synonyms.isEmpty || !dailyWord.term.antonyms.isEmpty {
                 DisclosureGroup(isExpanded: $isExpanded) {
                     VStack(alignment: .leading, spacing: 8) {
-                        if let example = dailyWord.example, !example.isEmpty {
+                        if let example = dailyWord.term.exampleSentence, !example.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Example")
                                     .font(.caption)
@@ -125,25 +125,25 @@ struct EnhancedDailyWordCard: View {
                             }
                         }
                         
-                        if !dailyWord.synonyms.isEmpty {
+                        if !dailyWord.term.synonyms.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Synonyms")
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                Text(dailyWord.synonyms.joined(separator: ", "))
+                                Text(dailyWord.term.synonyms.joined(separator: ", "))
                                     .font(.footnote)
                                     .foregroundColor(.primary)
                             }
                         }
                         
-                        if !dailyWord.antonyms.isEmpty {
+                        if !dailyWord.term.antonyms.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Antonyms")
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                Text(dailyWord.antonyms.joined(separator: ", "))
+                                Text(dailyWord.term.antonyms.joined(separator: ", "))
                                     .font(.footnote)
                                     .foregroundColor(.primary)
                             }
@@ -167,34 +167,34 @@ struct EnhancedDailyWordCard: View {
     private var enhancedVocabularySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Synonyms section
-            if !dailyWord.synonyms.isEmpty {
+            if !dailyWord.term.synonyms.isEmpty {
                 VocabularySection(
                     title: "Synonyms",
                     icon: "arrow.right.circle.fill",
                     color: .green,
-                    items: dailyWord.synonyms,
+                    items: dailyWord.term.synonyms,
                     isExpanded: $showingSynonyms
                 )
             }
             
             // Antonyms section
-            if !dailyWord.antonyms.isEmpty {
+            if !dailyWord.term.antonyms.isEmpty {
                 VocabularySection(
                     title: "Antonyms",
                     icon: "arrow.left.circle.fill",
                     color: .red,
-                    items: dailyWord.antonyms,
+                    items: dailyWord.term.antonyms,
                     isExpanded: $showingAntonyms
                 )
             }
             
             // Related terms section
-            if !dailyWord.relatedTerms.isEmpty {
+            if !dailyWord.term.relatedTerms.isEmpty {
                 RelatedTermsSection(
                     title: "Related Terms",
                     icon: "link.circle.fill",
                     color: Color.blue,
-                    relatedTerms: dailyWord.relatedTerms,
+                    relatedTerms: dailyWord.term.relatedTerms,
                     isExpanded: $showingRelatedTerms
                 )
             }
@@ -206,7 +206,7 @@ struct EnhancedDailyWordCard: View {
     
     private var additionalInfoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let etymology = dailyWord.etymology, !etymology.isEmpty {
+            if let etymology = dailyWord.term.etymology, !etymology.isEmpty {
                 InfoRow(
                     icon: "book.closed.fill",
                     title: "Etymology",
@@ -215,7 +215,7 @@ struct EnhancedDailyWordCard: View {
                 )
             }
             
-            if let pronunciation = dailyWord.pronunciation, !pronunciation.isEmpty {
+            if let pronunciation = dailyWord.term.pronunciation, !pronunciation.isEmpty {
                 InfoRow(
                     icon: "speaker.wave.2.fill",
                     title: "Pronunciation",
@@ -224,7 +224,7 @@ struct EnhancedDailyWordCard: View {
                 )
             }
             
-            if !dailyWord.tags.isEmpty {
+            if !dailyWord.term.tags.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "tag.fill")
@@ -238,7 +238,7 @@ struct EnhancedDailyWordCard: View {
                     }
                     
                     FlowLayout(spacing: 4) {
-                        ForEach(dailyWord.tags, id: \.self) { tag in
+                        ForEach(dailyWord.term.tags, id: \.self) { tag in
                             Text(tag)
                                 .font(.caption)
                                 .padding(.horizontal, 6)
@@ -260,7 +260,7 @@ struct EnhancedDailyWordCard: View {
                 isActive: false
             ) {
                 // TODO: Implement favorite action
-                print("Favorited: \(dailyWord.term)")
+                print("Favorited: \(dailyWord.term.word)")
             }
             
             EnhancedActionButton(
@@ -269,7 +269,7 @@ struct EnhancedDailyWordCard: View {
                 isActive: true
             ) {
                 // TODO: Implement learn again action
-                print("Learn again: \(dailyWord.term)")
+                print("Learn again: \(dailyWord.term.word)")
             }
             
             EnhancedActionButton(
@@ -278,7 +278,7 @@ struct EnhancedDailyWordCard: View {
                 isActive: false
             ) {
                 // TODO: Implement master action
-                print("Mastered: \(dailyWord.term)")
+                print("Mastered: \(dailyWord.term.word)")
             }
         }
     }
@@ -566,7 +566,7 @@ private struct FlowResult {
 #Preview {
     ScrollView {
         VStack(spacing: 16) {
-            EnhancedDailyWordCard(dailyWord: FirstDailyWord.previewData)
+            EnhancedDailyWordCard(dailyWord: DailyWord.previewData)
         }
         .padding()
     }

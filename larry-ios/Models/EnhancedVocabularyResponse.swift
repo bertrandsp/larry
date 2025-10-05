@@ -140,6 +140,44 @@ struct VocabularyActionResponse: Codable {
 
 // MARK: - Preview Data
 extension FirstDailyWord {
+    /// Convert FirstDailyWord to DailyWord for compatibility with EnhancedDailyWordCard
+    func toDailyWord() -> DailyWord {
+        return DailyWord(
+            id: self.id,
+            userId: "preview-user-id", // This will be set by the API response
+            term: Term(
+                id: self.id,
+                term: self.term,
+                definition: self.definition,
+                example: self.example,
+                pronunciation: self.pronunciation,
+                partOfSpeech: self.partOfSpeech,
+                difficulty: self.difficulty,
+                etymology: self.etymology,
+                synonyms: self.synonyms,
+                antonyms: self.antonyms,
+                relatedTerms: self.relatedTerms,
+                tags: self.tags,
+                category: self.category,
+                complexityLevel: self.complexityLevel,
+                source: self.source,
+                confidenceScore: self.confidenceScore,
+                topicId: self.topic?.id,
+                createdAt: Date(),
+                updatedAt: Date(),
+                userProgress: nil
+            ),
+            topic: self.topic,
+            deliveryDate: Date(),
+            isReview: false,
+            spacedRepetitionBucket: self.wordbank.bucket,
+            aiExplanation: nil,
+            contextualExample: self.example,
+            createdAt: Date(),
+            userInteraction: nil
+        )
+    }
+    
     static let previewData = FirstDailyWord(
         id: "preview-daily-word-1",
         term: "solidity",

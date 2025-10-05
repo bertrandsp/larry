@@ -41,7 +41,7 @@ struct TestEnhancedVocabularyView: View {
                         }
                         .padding()
                     } else if let word = testWord {
-                        EnhancedDailyWordCard(dailyWord: word)
+                        EnhancedDailyWordCard(dailyWord: word.toDailyWord())
                     } else {
                         VStack(spacing: 16) {
                             Text("Enhanced Vocabulary Test")
