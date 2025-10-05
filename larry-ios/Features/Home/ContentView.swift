@@ -272,95 +272,174 @@ struct HomeView: View {
 
 private struct DailyWordCard: View {
     let dailyWord: DailyWord
+    @State private var isExpanded = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Topic label at the top
-            if let topic = dailyWord.topic {
-                HStack {
-                    Button(action: {
-                        // TODO: Navigate to topic details or interests screen
-                        print("Tapped topic: \(topic.name)")
-                    }) {
-                        Text(topic.name)
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.gray.opacity(0.15))
-                            .cornerRadius(8)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Spacer()
-                }
-            }
-            
+        VStack(alignment: .leading, spacing: 16) {
+            // Header Row - Term + Audio Button
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(dailyWord.term.word)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text(dailyWord.term.partOfSpeechEnum.displayName)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color(.systemGray5))
-                        .cornerRadius(4)
-                }
+                Text(dailyWord.term.word)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
                 
                 Spacer()
                 
-                if dailyWord.isReview {
-                    Text("REVIEW")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.orange)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(4)
+                // Audio pronunciation button
+                Button(action: {
+                    // TODO: Play pronunciation using AVSpeechSynthesizer
+                    print("Playing pronunciation for: \(dailyWord.term.word)")
+                }) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.title3)
+                        .foregroundColor(.teal)
                 }
             }
             
-            Text(dailyWord.term.definition)
-                .font(.subheadline)
-                .foregroundColor(.primary)
-            
-            if let example = dailyWord.term.exampleSentence {
-                Text("\"\(example)\"")
+            // Pronunciation
+            if let pronunciation = dailyWord.term.pronunciation {
+                Text(pronunciation)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                    .italic()
             }
             
-            // Action buttons
-            HStack(spacing: 16) {
-                Button("❤️ Favorite") {
+            // Topic Section - Pill Design
+            if let topic = dailyWord.topic {
+                Button(action: {
+                    // TODO: Navigate to topic details or interests screen
+                    print("Tapped topic: \(topic.name)")
+                }) {
+                    Text(topic.name.uppercased())
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.teal)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color.teal.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Definition Section
+            Text(dailyWord.term.definition)
+                .font(.body)
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            // Additional Information Section (Expandable)
+            if dailyWord.term.exampleSentence != nil || !dailyWord.term.synonyms.isEmpty || !dailyWord.term.antonyms.isEmpty {
+                DisclosureGroup(isExpanded: $isExpanded) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let example = dailyWord.term.exampleSentence {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Example")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                Text("\"\(example)\"")
+                                    .font(.footnote)
+                                    .foregroundColor(.primary)
+                                    .italic()
+                            }
+                        }
+                        
+                        if !dailyWord.term.synonyms.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Synonyms")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                Text(dailyWord.term.synonyms.joined(separator: ", "))
+                                    .font(.footnote)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                        
+                        if !dailyWord.term.antonyms.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Antonyms")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                Text(dailyWord.term.antonyms.joined(separator: ", "))
+                                    .font(.footnote)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+                    .padding(.top, 8)
+                } label: {
+                    HStack {
+                        Text("Additional Information")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                }
+                .accentColor(.secondary)
+            }
+            
+            // Action Row - Three Buttons
+            HStack(spacing: 0) {
+                ActionButton(
+                    icon: "heart",
+                    label: "Favorite",
+                    isActive: false
+                ) {
                     // TODO: Add to favorites
+                    print("Favorited: \(dailyWord.term.word)")
                 }
-                .font(.caption)
                 
-                Button("🔄 Learn Again") {
+                ActionButton(
+                    icon: "arrow.clockwise",
+                    label: "Learn Again",
+                    isActive: true
+                ) {
                     // TODO: Mark for re-learning
+                    print("Learn again: \(dailyWord.term.word)")
                 }
-                .font(.caption)
                 
-                Button("✅ Mastered") {
+                ActionButton(
+                    icon: "checkmark.circle",
+                    label: "Master",
+                    isActive: false
+                ) {
                     // TODO: Mark as mastered
+                    print("Mastered: \(dailyWord.term.word)")
                 }
-                .font(.caption)
-                
-                Spacer()
             }
         }
-        .padding(16)
+        .padding(20)
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct ActionButton: View {
+    let icon: String
+    let label: String
+    let isActive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(isActive ? .teal : .primary)
+                
+                Text(label)
+                    .font(.caption)
+                    .foregroundColor(isActive ? .teal : .secondary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
