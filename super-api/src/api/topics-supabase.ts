@@ -383,8 +383,31 @@ router.delete('/user/topics/:userTopicId', async (req, res) => {
   try {
     const { userTopicId } = req.params;
     
+    // Extract user ID from request headers
+    const userId = req.headers['x-user-id'] as string;
+    
+    if (!userId) {
+      console.error('❌ Topic removal: No user ID provided in request');
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
     if (!supabase) {
       return res.status(503).json({ error: 'Database not available' });
+    }
+
+    console.log(`🗑️ Topic removal: User ${userId} attempting to remove topic ${userTopicId}`);
+
+    // First, verify the user owns this topic
+    const { data: existingUserTopic, error: checkError } = await supabase
+      .from('UserTopic')
+      .select('id, userId')
+      .eq('id', userTopicId)
+      .eq('userId', userId)
+      .single();
+
+    if (checkError || !existingUserTopic) {
+      console.error(`❌ Topic removal: User ${userId} does not own topic ${userTopicId} or topic not found`);
+      return res.status(404).json({ error: 'Topic not found or access denied' });
     }
 
     // Delete the user topic
@@ -394,16 +417,17 @@ router.delete('/user/topics/:userTopicId', async (req, res) => {
       .eq('id', userTopicId);
 
     if (deleteError) {
-      console.error('Error deleting user topic:', deleteError);
+      console.error('❌ Topic removal: Error deleting user topic:', deleteError);
       if (deleteError.code === 'PGRST116') {
         return res.status(404).json({ error: 'User topic not found' });
       }
       return res.status(500).json({ error: 'Failed to remove topic' });
     }
 
+    console.log(`✅ Topic removal: Successfully removed topic ${userTopicId} for user ${userId}`);
     res.status(204).send();
   } catch (error: any) {
-    console.error('Error removing topic from user:', error);
+    console.error('❌ Topic removal: Error removing topic from user:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

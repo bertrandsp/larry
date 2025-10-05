@@ -32,6 +32,7 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+app.use('/', topicsRoutes); // Move topics routes first to avoid conflicts with /user/:userId
 app.use('/user', userRoutes);
 app.use('/', authRoutes);
 app.use('/', onboardingRoutes);
@@ -40,7 +41,6 @@ app.use('/', firstDailyRoutes);
 app.use('/', dailyRoutes);
 app.use('/', userDashboardRoutes);
 app.use('/', analyticsRoutes);
-app.use('/', topicsRoutes);
 
 // Start server
 app.listen(PORT, () => {

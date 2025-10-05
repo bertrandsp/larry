@@ -214,13 +214,17 @@ class TopicManagementViewModel: ObservableObject {
             // Update local state
             userTopics.removeAll { $0.id == userTopic.id }
             
-            // Add the topic back to available topics if we have the data
-            // In a real implementation, you might want to reload available topics
-            // or keep a reference to the original AvailableTopic
+            // Refresh the data to ensure UI reflects database state
+            await refresh()
             
-            state = .loaded
+            #if DEBUG
+            print("✅ TopicManagementViewModel: Successfully removed topic \(userTopic.name)")
+            #endif
         } catch {
             await handleError(error)
+            #if DEBUG
+            print("❌ TopicManagementViewModel: Failed to remove topic \(userTopic.name): \(error)")
+            #endif
         }
     }
     

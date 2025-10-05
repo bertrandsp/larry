@@ -484,9 +484,14 @@ private extension APIService {
     
     /// Remove a topic from a user's interests
     public func removeTopicFromUser(userTopicId: String) async throws {
+        guard let userId = AuthManager.shared.currentUser?.id else {
+            throw APIError.unauthorized
+        }
+        
         let request = APIRequest(
             method: .DELETE,
-            path: "/user/topics/\(userTopicId)"
+            path: "/user/topics/\(userTopicId)",
+            headers: ["x-user-id": userId]
         )
         
         try await send(request)

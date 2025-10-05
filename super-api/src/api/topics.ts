@@ -218,14 +218,39 @@ router.put('/user/topics/:userTopicId', async (req, res) => {
 router.delete('/user/topics/:userTopicId', async (req, res) => {
   try {
     const { userTopicId } = req.params;
+    
+    // Extract user ID from request (should be in headers or auth token)
+    const userId = req.headers['x-user-id'] as string;
+    
+    if (!userId) {
+      console.error('❌ Topic removal: No user ID provided in request');
+      return res.status(401).json({ error: 'User authentication required' });
+    }
 
+    console.log(`🗑️ Topic removal: User ${userId} attempting to remove topic ${userTopicId}`);
+
+    // First, verify the user owns this topic
+    const existingUserTopic = await prisma.userTopic.findFirst({
+      where: { 
+        id: userTopicId,
+        userId: userId
+      }
+    });
+
+    if (!existingUserTopic) {
+      console.error(`❌ Topic removal: User ${userId} does not own topic ${userTopicId}`);
+      return res.status(404).json({ error: 'Topic not found or access denied' });
+    }
+
+    // Delete the user topic
     await prisma.userTopic.delete({
       where: { id: userTopicId }
     });
 
+    console.log(`✅ Topic removal: Successfully removed topic ${userTopicId} for user ${userId}`);
     res.status(204).send();
   } catch (error: any) {
-    console.error('Error deleting user topic:', error);
+    console.error('❌ Topic removal: Error deleting user topic:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
