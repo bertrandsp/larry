@@ -6,10 +6,29 @@ struct MainContentView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Home Tab - Enhanced with Real-Time Updates
+            // Home Tab - Daily Words with Real-Time Updates
             NavigationView {
-                EnhancedHomeView()
+                DailyWordsView()
                     .environmentObject(viewModel)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(action: {
+                                Task {
+                                    await viewModel.refreshData()
+                                }
+                            }) {
+                                Image(systemName: viewModel.isRefreshing ? "arrow.clockwise" : "arrow.clockwise")
+                                    .rotationEffect(.degrees(viewModel.isRefreshing ? 360 : 0))
+                                    .animation(
+                                        viewModel.isRefreshing ? 
+                                        Animation.linear(duration: 1).repeatForever(autoreverses: false) : 
+                                        .default, 
+                                        value: viewModel.isRefreshing
+                                    )
+                            }
+                            .disabled(viewModel.isRefreshing)
+                        }
+                    }
             }
             .tabItem {
                 Image(systemName: "house.fill")

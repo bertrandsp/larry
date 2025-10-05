@@ -39,7 +39,9 @@ class HomeViewModel: ObservableObject {
     }
     
     deinit {
-        stopPeriodicRefresh()
+        Task { @MainActor in
+            stopPeriodicRefresh()
+        }
     }
     
     // MARK: - Public Methods
@@ -213,5 +215,159 @@ class HomeViewModel: ObservableObject {
             await smartRefresh()
         }
     }
+    
+    func loadFirstDailyWord() async {
+        guard let userId = AuthManager.shared.currentUser?.id else {
+            #if DEBUG
+            print("❌ No user ID available for first daily word")
+            #endif
+            return
+        }
+        
+        // Skip first daily word for users who have already completed onboarding
+        guard let user = AuthManager.shared.currentUser, !user.onboardingCompleted else {
+            #if DEBUG
+            print("✅ User has completed onboarding, skipping first daily word")
+            #endif
+            firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
+                success: true,
+                dailyWord: nil,
+                message: "First vocab already generated"
+            ))
+            return
+        }
+        
+        firstDailyWord.setLoading()
+        
+        do {
+            let response = try await APIService.shared.getFirstDailyWord(userId: userId)
+            firstDailyWord.setSuccess(response)
+            
+            #if DEBUG
+            print("✅ First daily word loaded: \(response.dailyWord?.term ?? "none")")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to load first daily word: \(error)")
+            #endif
+            
+            firstDailyWord.setError(error)
+        }
+    }
+    
+    // MARK: - Word Actions
+    
+    func markAsFavorite(_ dailyWordId: String) async {
+        do {
+            let request = try APIRequest(
+                method: .POST,
+                path: "/actions/favorite",
+                body: WordActionRequest(dailyWordId: dailyWordId)
+            )
+            
+            try await APIService.shared.send(request)
+            
+            // Update local state
+            updateWordLocally(dailyWordId) { interaction in
+                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
+                updated.markedAsFavorite = true
+                return updated
+            }
+            
+            #if DEBUG
+            print("✅ Word marked as favorite")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to mark word as favorite: \(error)")
+            #endif
+        }
+    }
+    
+    func markForRelearning(_ dailyWordId: String) async {
+        do {
+            let request = try APIRequest(
+                method: .POST,
+                path: "/actions/learn-again",
+                body: WordActionRequest(dailyWordId: dailyWordId)
+            )
+            
+            try await APIService.shared.send(request)
+            
+            // Update local state
+            updateWordLocally(dailyWordId) { interaction in
+                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
+                updated.markedForRelearning = true
+                return updated
+            }
+            
+            #if DEBUG
+            print("✅ Word marked for relearning")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to mark word for relearning: \(error)")
+            #endif
+        }
+    }
+    
+    func markAsMastered(_ dailyWordId: String) async {
+        do {
+            let request = try APIRequest(
+                method: .POST,
+                path: "/actions/mastered",
+                body: WordActionRequest(dailyWordId: dailyWordId)
+            )
+            
+            try await APIService.shared.send(request)
+            
+            // Update local state
+            updateWordLocally(dailyWordId) { interaction in
+                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
+                updated.markedAsMastered = true
+                return updated
+            }
+            
+            #if DEBUG
+            print("✅ Word marked as mastered")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("❌ Failed to mark word as mastered: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Private Helper Methods
+    
+    private func updateWordLocally(_ dailyWordId: String, update: (DailyWordInteraction?) -> DailyWordInteraction?) {
+        // This would update the local state of the word
+        // Implementation depends on your data structure
+    }
+    
+    private func createDefaultInteraction(for dailyWordId: String) -> DailyWordInteraction {
+        return DailyWordInteraction(
+            dailyWordId: dailyWordId,
+            userId: AuthManager.shared.currentUser?.id ?? "",
+            viewedAt: Date(),
+            completedAt: nil,
+            markedAsFavorite: false,
+            markedForRelearning: false,
+            markedAsMastered: false,
+            timeSpentSeconds: nil,
+            aiChatUsed: false,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+}
 
-// ... existing code ...
+// MARK: - Supporting Types
+
+struct WordActionRequest: Codable {
+    let dailyWordId: String
+}

@@ -25,7 +25,7 @@ class RealTimeService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var heartbeatTimer: Timer?
     private var reconnectTimer: Timer?
-    private var reconnectAttempts = 0
+    var reconnectAttempts = 0
     private let maxReconnectAttempts = 5
     private let baseURL = "ws://localhost:4001"
     
@@ -59,7 +59,9 @@ class RealTimeService: ObservableObject {
     }
     
     deinit {
-        disconnect()
+        Task { @MainActor in
+            disconnect()
+        }
     }
     
     // MARK: - Public Methods
@@ -157,8 +159,10 @@ class RealTimeService: ObservableObject {
             }
             
             // Continue receiving messages
-            if self?.connectionStatus == .connected {
-                self?.startReceiving()
+            Task { @MainActor in
+                if self?.connectionStatus == .connected {
+                    self?.startReceiving()
+                }
             }
         }
     }
@@ -213,7 +217,8 @@ class RealTimeService: ObservableObject {
         case .heartbeat:
             handleHeartbeat()
         case .error:
-            if let errorMessage = response.data["error"] as? String {
+            if let errorCodable = response.data["error"], 
+               let errorMessage = errorCodable.value as? String {
                 handleConnectionError(RealTimeError.serverError(errorMessage))
             }
         }
@@ -285,13 +290,17 @@ class RealTimeService: ObservableObject {
         #endif
         
         reconnectTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            self?.connect()
+            Task { @MainActor in
+                self?.connect()
+            }
         }
     }
     
     private func startHeartbeat() {
         heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            self?.sendHeartbeat()
+            Task { @MainActor in
+                self?.sendHeartbeat()
+            }
         }
     }
     
