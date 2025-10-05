@@ -52,7 +52,9 @@ struct PerfectDailyWordsScrollView: View {
                             .scrollDisabled(true) // We handle scrolling manually
                             .onAppear {
                                 scrollProxy = proxy
-                                loadInitialWords()
+                                Task {
+                                    await loadInitialWords()
+                                }
                             }
                             .simultaneousGesture(
                                 DragGesture()
@@ -326,13 +328,6 @@ struct PerfectDailyWordsScrollView: View {
     }
 }
 
-// MARK: - Array Extension for Safe Access
-
-extension Array {
-    subscript(safe index: Index) -> Element? {
-        return indices.contains(index) ? self[index] : nil
-    }
-}
 
 // MARK: - Preview
 
