@@ -46,7 +46,7 @@ struct DailyWordsView: View {
                         // Use currentWords + preloadedWords for display
                         let wordsToShow = currentWords.isEmpty ? response.words : (currentWords + preloadedWords)
                         
-                        // Convert DailyWord to VocabularyCard and display
+                        // Display EnhancedDailyWordCard with swipe functionality
                         VerticalTabView(
                             cardCount: wordsToShow.count,
                             onSwipeToNext: { await handleSwipeToNext() },
@@ -61,15 +61,9 @@ struct DailyWordsView: View {
                             }
                         ) {
                             ForEach(Array(wordsToShow.enumerated()), id: \.element.id) { index, dailyWord in
-                                let vocabularyCard = convertToVocabularyCard(from: dailyWord)
-                                
-                                VocabularyCardView(
-                                    card: vocabularyCard,
-                                    cardHeight: screenHeight,
-                                    isActive: true
-                                )
-                                .frame(width: geometry.size.width, height: screenHeight)
-                                .id(index)
+                                EnhancedDailyWordCard(dailyWord: dailyWord)
+                                    .frame(width: geometry.size.width, height: screenHeight)
+                                    .id(index)
                             }
                         }
                     }
@@ -190,23 +184,6 @@ struct DailyWordsView: View {
         isPreloading = false
     }
     
-    private func convertToVocabularyCard(from dailyWord: DailyWord) -> VocabularyCard {
-        return VocabularyCard(
-            id: dailyWord.id,
-            term: dailyWord.term.term,
-            pronunciation: dailyWord.term.pronunciation ?? "",
-            partOfSpeech: dailyWord.term.partOfSpeech ?? "",
-            definition: dailyWord.term.definition,
-            example: dailyWord.term.example ?? "",
-            imageUrl: nil,
-            synonyms: dailyWord.term.synonyms,
-            antonyms: dailyWord.term.antonyms,
-            relatedTerms: dailyWord.term.relatedTerms.map { rt in
-                rt.term
-            },
-            difficulty: dailyWord.term.difficulty ?? 1
-        )
-    }
 }
 
 #Preview {
