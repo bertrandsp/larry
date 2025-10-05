@@ -18,6 +18,10 @@
     "test:tiers": "node test-tier-generation.js",
     "test:quota": "node test-quota-system.js",
     "test:watch": "vitest",
+    "test:optimization": "node test-openai-optimization.js",
+    "test:optimization:simple": "node test-simple.js",
+    "test:optimization:standalone": "node test-optimization-standalone.js",
+    "test:optimization:deploy": "./test-deployment.sh",
     "test:integration": "vitest --run tests/integration/**/*.test.ts"
   },
   "keywords": [

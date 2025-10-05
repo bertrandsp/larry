@@ -11,6 +11,7 @@ import dailyRoutes from './api/daily-supabase';
 import userDashboardRoutes from './api/user-dashboard';
 import analyticsRoutes from './api/analytics';
 import topicsRoutes from './api/topics-supabase';
+import optimizedGenerateRoutes from './api/generate-optimized';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/', firstDailyRoutes);
 app.use('/', dailyRoutes);
 app.use('/', userDashboardRoutes);
 app.use('/', analyticsRoutes);
+app.use('/', optimizedGenerateRoutes);
 
 // Start server
 app.listen(PORT, () => {
