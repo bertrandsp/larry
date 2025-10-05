@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 
 import authRoutes from './api/auth-supabase';
 import userRoutes from './api/users-supabase';
@@ -12,10 +13,12 @@ import userDashboardRoutes from './api/user-dashboard';
 import analyticsRoutes from './api/analytics';
 import topicsRoutes from './api/topics-supabase';
 import optimizedGenerateRoutes from './api/generate-optimized';
+import websocketRoutes, { setupWebSocketServer } from './api/websocket';
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
 const PORT = 4001;
 
 // Middleware
@@ -43,12 +46,17 @@ app.use('/', dailyRoutes);
 app.use('/', userDashboardRoutes);
 app.use('/', analyticsRoutes);
 app.use('/', optimizedGenerateRoutes);
+app.use('/', websocketRoutes); // WebSocket health check endpoint
+
+// Setup WebSocket server
+setupWebSocketServer(server);
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Larry Backend Service running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔗 API base: http://localhost:${PORT}/user`);
+  console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`🍎 Supabase integration active`);
 });
 

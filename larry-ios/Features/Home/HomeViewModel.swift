@@ -21,6 +21,13 @@ class HomeViewModel: ObservableObject {
     // MARK: - Private Properties
     
     private var cancellables = Set<AnyCancellable>()
+    private var refreshTimer: Timer?
+    private var lastRefreshTime: Date = Date.distantPast
+    
+    // MARK: - Configuration
+    
+    private let refreshInterval: TimeInterval = 30.0 // Refresh every 30 seconds
+    private let maxRefreshInterval: TimeInterval = 300.0 // Maximum 5 minutes between refreshes
     
     // MARK: - Initialization
     
@@ -28,6 +35,11 @@ class HomeViewModel: ObservableObject {
         #if DEBUG
         print("🏠 HomeViewModel initialized")
         #endif
+        startPeriodicRefresh()
+    }
+    
+    deinit {
+        stopPeriodicRefresh()
     }
     
     // MARK: - Public Methods
@@ -42,6 +54,7 @@ class HomeViewModel: ObservableObject {
         await loadDailyWords()
         await loadFirstDailyWord()
         isRefreshing = false
+        lastRefreshTime = Date()
     }
     
     func loadDailyWords() async {
@@ -59,9 +72,10 @@ class HomeViewModel: ObservableObject {
             )
             
             dailyWords.setSuccess(response)
+            lastRefreshTime = Date()
             
             #if DEBUG
-            print("✅ Daily words loaded: \(response.words.count) words")
+            print("✅ Daily words loaded: \(response.words.count) words at \(Date())")
             #endif
             
         } catch {
@@ -82,220 +96,122 @@ class HomeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Word Actions
+    // MARK: - Periodic Refresh Management
     
-    func markAsFavorite(_ dailyWordId: String) async {
-        do {
-            let request = try APIRequest(
-                method: .POST,
-                path: "/actions/favorite",
-                body: WordActionRequest(dailyWordId: dailyWordId)
-            )
-            
-            try await APIService.shared.send(request)
-            
-            // Update local state
-            updateWordLocally(dailyWordId) { interaction in
-                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
-                updated.markedAsFavorite = true
-                return updated
+    private func startPeriodicRefresh() {
+        #if DEBUG
+        print("🔄 Starting periodic refresh (every \(refreshInterval)s)")
+        #endif
+        
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.performPeriodicRefresh()
             }
-            
-            #if DEBUG
-            print("✅ Word marked as favorite")
-            #endif
-            
-        } catch {
-            #if DEBUG
-            print("❌ Failed to mark word as favorite: \(error)")
-            #endif
         }
     }
     
-    func markForRelearning(_ dailyWordId: String) async {
-        do {
-            let request = try APIRequest(
-                method: .POST,
-                path: "/actions/learn-again",
-                body: WordActionRequest(dailyWordId: dailyWordId)
-            )
-            
-            try await APIService.shared.send(request)
-            
-            // Update local state
-            updateWordLocally(dailyWordId) { interaction in
-                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
-                updated.markedForRelearning = true
-                return updated
-            }
-            
-            #if DEBUG
-            print("✅ Word marked for re-learning")
-            #endif
-            
-        } catch {
-            #if DEBUG
-            print("❌ Failed to mark word for re-learning: \(error)")
-            #endif
-        }
+    private func stopPeriodicRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        
+        #if DEBUG
+        print("⏹️ Stopped periodic refresh")
+        #endif
     }
     
-    func markAsMastered(_ dailyWordId: String) async {
-        do {
-            let request = try APIRequest(
-                method: .POST,
-                path: "/actions/mastered",
-                body: WordActionRequest(dailyWordId: dailyWordId)
-            )
-            
-            try await APIService.shared.send(request)
-            
-            // Update local state
-            updateWordLocally(dailyWordId) { interaction in
-                var updated = interaction ?? createDefaultInteraction(for: dailyWordId)
-                updated.markedAsMastered = true
-                return updated
-            }
-            
+    private func performPeriodicRefresh() async {
+        // Don't refresh if we just refreshed recently
+        let timeSinceLastRefresh = Date().timeIntervalSince(lastRefreshTime)
+        if timeSinceLastRefresh < refreshInterval {
             #if DEBUG
-            print("✅ Word marked as mastered")
-            #endif
-            
-        } catch {
-            #if DEBUG
-            print("❌ Failed to mark word as mastered: \(error)")
-            #endif
-        }
-    }
-    
-    // MARK: - Enhanced Vocabulary Actions
-    
-    func loadFirstDailyWord() async {
-        guard let userId = AuthManager.shared.currentUser?.id else {
-            #if DEBUG
-            print("❌ No user ID available for first daily word")
+            print("⏭️ Skipping refresh - too soon (last: \(Int(timeSinceLastRefresh))s ago)")
             #endif
             return
         }
         
-        // Skip first daily word for users who have already completed onboarding
-        guard let user = AuthManager.shared.currentUser, !user.onboardingCompleted else {
+        // Don't refresh if user is actively refreshing
+        if isRefreshing {
             #if DEBUG
-            print("✅ User has completed onboarding, skipping first daily word")
+            print("⏭️ Skipping refresh - user is manually refreshing")
             #endif
-            firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
-                success: true,
-                dailyWord: nil,
-                message: "First vocab already generated"
-            ))
             return
         }
         
-        firstDailyWord.setLoading()
+        // Don't refresh if we're in error state (avoid spam)
+        if case .error = dailyWords {
+            #if DEBUG
+            print("⏭️ Skipping refresh - in error state")
+            #endif
+            return
+        }
         
-        do {
-            let response = try await APIService.shared.getFirstDailyWord(userId: userId)
-            firstDailyWord.setSuccess(response)
-            
-            #if DEBUG
-            print("✅ First daily word loaded: \(response.dailyWord?.term ?? "none")")
-            #endif
-            
-        } catch {
-            #if DEBUG
-            print("❌ Failed to load first daily word: \(error)")
-            #endif
-            
-            // Don't use mock data - just set success with no daily word
-            firstDailyWord.setSuccess(EnhancedFirstDailyWordResponse(
-                success: true,
-                dailyWord: nil,
-                message: "First vocab already generated"
-            ))
-        }
+        #if DEBUG
+        print("🔄 Performing background refresh...")
+        #endif
+        
+        // Perform silent refresh without showing loading state
+        await loadDailyWords()
     }
     
-    func updateTermRelevance(userId: String, termId: String, isRelevant: Bool) async {
-        do {
-            let response = try await APIService.shared.updateTermRelevance(
-                userId: userId,
-                termId: termId,
-                isRelevant: isRelevant
-            )
-            
-            if response.success {
-                #if DEBUG
-                print("✅ Term relevance updated: \(isRelevant ? "relevant" : "unrelated")")
-                #endif
-                
-                // Refresh the first daily word to get updated data
-                await loadFirstDailyWord()
-            }
-            
-        } catch {
+    // MARK: - Smart Refresh (Context-Aware)
+    
+    func smartRefresh() async {
+        // Check if we have recent data
+        let timeSinceLastRefresh = Date().timeIntervalSince(lastRefreshTime)
+        
+        if timeSinceLastRefresh < 10.0 {
             #if DEBUG
-            print("❌ Failed to update term relevance: \(error)")
+            print("⏭️ Skipping smart refresh - data is fresh (\(Int(timeSinceLastRefresh))s old)")
             #endif
+            return
         }
+        
+        #if DEBUG
+        print("🧠 Performing smart refresh...")
+        #endif
+        
+        await refreshData()
     }
     
-    func trackVocabularyAction(termId: String, action: VocabularyAction) async {
-        do {
-            let response = try await APIService.shared.trackVocabularyAction(
-                termId: termId,
-                action: action
-            )
-            
-            if response.success {
-                #if DEBUG
-                print("✅ Vocabulary action tracked: \(action.rawValue)")
-                #endif
-            }
-            
-        } catch {
-            #if DEBUG
-            print("❌ Failed to track vocabulary action: \(error)")
-            #endif
-        }
-    }
+    // MARK: - App Lifecycle Management
     
-    // MARK: - Private Helpers
-    
-    private func updateWordLocally(
-        _ dailyWordId: String,
-        transform: (DailyWordInteraction?) -> DailyWordInteraction
-    ) {
-        // Note: Since our models are immutable structs, we'll refresh the data after API calls
-        // In a production app, you might want to use a more sophisticated state management approach
-        // For now, we'll just refresh the data to get the updated state from the server
+    func handleAppBecameActive() {
+        #if DEBUG
+        print("📱 App became active - checking for updates")
+        #endif
+        
         Task {
-            await loadDailyWords()
+            await smartRefresh()
         }
     }
     
-    private func createDefaultInteraction(for dailyWordId: String) -> DailyWordInteraction {
-        return DailyWordInteraction(
-            dailyWordId: dailyWordId,
-            userId: AuthManager.shared.currentUser?.id ?? "",
-            viewedAt: Date(),
-            completedAt: nil,
-            markedAsFavorite: false,
-            markedForRelearning: false,
-            markedAsMastered: false,
-            timeSpentSeconds: nil,
-            aiChatUsed: false,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
+    func handleAppWillResignActive() {
+        #if DEBUG
+        print("📱 App will resign active - stopping periodic refresh")
+        #endif
+        
+        // Stop periodic refresh when app goes to background to save battery
+        stopPeriodicRefresh()
     }
-}
-
-// MARK: - Request Models
-
-private struct WordActionRequest: Codable {
-    let dailyWordId: String
     
-    enum CodingKeys: String, CodingKey {
-        case dailyWordId = "daily_word_id"
+    func handleAppDidEnterBackground() {
+        #if DEBUG
+        print("📱 App entered background")
+        #endif
     }
-}
+    
+    func handleAppWillEnterForeground() {
+        #if DEBUG
+        print("📱 App will enter foreground - restarting periodic refresh")
+        #endif
+        
+        // Restart periodic refresh when app comes back to foreground
+        startPeriodicRefresh()
+        
+        // Immediately check for updates
+        Task {
+            await smartRefresh()
+        }
+    }
+
+// ... existing code ...

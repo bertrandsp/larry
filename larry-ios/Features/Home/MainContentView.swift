@@ -6,9 +6,9 @@ struct MainContentView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Home Tab - Real Daily Words from API
+            // Home Tab - Enhanced with Real-Time Updates
             NavigationView {
-                DailyWordsView()
+                EnhancedHomeView()
                     .environmentObject(viewModel)
             }
             .tabItem {
