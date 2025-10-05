@@ -8,7 +8,8 @@ struct PerfectDailyWordsScrollView: View {
     @State private var currentIndex: Int = 0
     @State private var dragOffset: CGFloat = 0
     @State private var isSnapping: Bool = false
-    @State private var scrollProxy: Any?
+    @State private var scrollProxy: ScrollViewProxy?
+    @State private var hasInitialized = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -50,11 +51,10 @@ struct PerfectDailyWordsScrollView: View {
                                 }
                             }
                             .scrollDisabled(true) // We handle scrolling manually
+                            .offset(y: dragOffset) // Apply drag offset for visual feedback
                             .onAppear {
                                 scrollProxy = proxy
-                                Task {
-                                    await loadInitialWords()
-                                }
+                                initializeWords()
                             }
                             .simultaneousGesture(
                                 DragGesture()
@@ -167,7 +167,7 @@ struct PerfectDailyWordsScrollView: View {
         }
     }
     
-    private func handleDragEnded(value: DragGesture.Value, screenHeight: CGFloat, proxy: Any) {
+    private func handleDragEnded(value: DragGesture.Value, screenHeight: CGFloat, proxy: ScrollViewProxy) {
         guard !isSnapping else { return }
         
         let translation = value.translation.height
@@ -193,16 +193,17 @@ struct PerfectDailyWordsScrollView: View {
         snapToCard(index: targetIndex, proxy: proxy)
     }
     
-    private func snapToCard(index: Int, proxy: Any) {
+    private func snapToCard(index: Int, proxy: ScrollViewProxy) {
         let wordsToShow = currentWords.isEmpty ? (viewModel.dailyWords.data?.words ?? []) : (currentWords + preloadedWords)
         guard index >= 0 && index < wordsToShow.count else { return }
         
         isSnapping = true
         dragOffset = 0
         
-        // Smooth spring animation
+        // Smooth spring animation with actual scrolling
         withAnimation(.interpolatingSpring(stiffness: 280, damping: 28, initialVelocity: 0)) {
             currentIndex = index
+            proxy.scrollTo(index, anchor: UnitPoint.top)
         }
         
         // Haptic feedback
@@ -250,12 +251,18 @@ struct PerfectDailyWordsScrollView: View {
     
     // MARK: - Data Loading
     
-    private func loadInitialWords() async {
-        await viewModel.loadDailyWords()
+    private func initializeWords() {
+        // Prevent multiple initializations
+        guard !hasInitialized else { return }
+        hasInitialized = true
+        
+        // Initialize words from the viewModel data without triggering additional loads
         if case .success(let response) = viewModel.dailyWords {
             currentWords = response.words
-            // Preload first 2 words immediately
-            await preloadNextWords(count: 2)
+            // Start preloading in background
+            Task {
+                await preloadNextWords(count: 2)
+            }
         }
     }
     
