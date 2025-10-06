@@ -189,15 +189,17 @@ model Delivery {
   id          String         @id @default(uuid())
   userId      String
   termId      String
-  deliveredAt DateTime       @default(now())
+  deliveredAt DateTime?      // null = queued, not yet delivered
   openedAt    DateTime?
   action      DeliveryAction @default(NONE)
+  createdAt   DateTime       @default(now())
 
   user User @relation(fields: [userId], references: [id])
   term Term @relation(fields: [termId], references: [id])
 
   @@index([userId])
   @@index([deliveredAt])
+  @@index([userId, deliveredAt]) // For finding undelivered words
 }
 
 model Wordbank {

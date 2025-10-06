@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import topicWorker from './topicWorker';
+import batchWorker from './batchWorker';
 
 console.log('🚀 Starting Larry Backend Workers...');
 
@@ -15,7 +16,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Initialize all workers with error handling
-const workers = [topicWorker];
+const workers = [topicWorker, batchWorker];
 
 // Add error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {

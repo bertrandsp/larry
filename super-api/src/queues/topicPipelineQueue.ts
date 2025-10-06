@@ -18,6 +18,20 @@ export const topicPipelineQueue = new Queue('generate-topic-pipeline', {
   },
 });
 
+// Daily word pre-generation queue
+export const generateNextBatchQueue = new Queue('generate-next-batch', {
+  connection: redis,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+    removeOnComplete: 50,
+    removeOnFail: 25,
+  },
+});
+
 // Job types
 export interface TopicGenerationJob {
   userId: string;

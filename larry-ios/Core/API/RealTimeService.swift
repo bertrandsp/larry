@@ -11,6 +11,7 @@ import Combine
 /// Service for real-time updates using WebSocket or Server-Sent Events
 @MainActor
 class RealTimeService: ObservableObject {
+    static let shared = RealTimeService()
     
     // MARK: - Published Properties
     
@@ -65,6 +66,17 @@ class RealTimeService: ObservableObject {
     }
     
     // MARK: - Public Methods
+    
+    /// Connect once - ensures only one connection attempt
+    func connectOnce() {
+        guard webSocketTask == nil else { 
+            #if DEBUG
+            print("🔌 Already connected")
+            #endif
+            return 
+        }
+        connect()
+    }
     
     func connect() {
         guard connectionStatus != .connected && connectionStatus != .connecting else {

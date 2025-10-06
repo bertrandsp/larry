@@ -17,6 +17,8 @@ class HomeViewModel: ObservableObject {
     @Published var dailyWords: ViewState<DailyWordsResponse> = .idle
     @Published var firstDailyWord: ViewState<EnhancedFirstDailyWordResponse> = .idle
     @Published var isRefreshing = false
+    @Published var preloadedWords: [DailyWord] = []
+    @Published var isPreloading = false
     
     // MARK: - Private Properties
     
@@ -47,7 +49,36 @@ class HomeViewModel: ObservableObject {
     // MARK: - Public Methods
     
     func loadInitialData() async {
-        await loadDailyWords()
+        PerformanceTracker.shared.trackAppLaunch()
+        
+        // Try to load from cache first for instant render
+        if let cachedWords = LocalCache.loadDailyWords(), !cachedWords.isEmpty {
+            PerformanceTracker.shared.trackCacheHit(true, cacheType: "daily_words")
+            
+            let cachedResponse = DailyWordsResponse(
+                words: cachedWords,
+                totalCount: cachedWords.count,
+                remainingToday: cachedWords.count,
+                nextDeliveryAt: nil,
+                streakCount: 0
+            )
+            dailyWords.setSuccess(cachedResponse)
+            
+            // Track render time
+            if let renderTime = PerformanceTracker.shared.endTiming("app_launch") {
+                PerformanceTracker.shared.trackCardRenderTime(renderTime)
+            }
+            
+            // Background refresh to get fresh data
+            Task { await refreshInBackground() }
+            
+            // Start preloading next words
+            Task { await preloadNextWords() }
+        } else {
+            PerformanceTracker.shared.trackCacheHit(false, cacheType: "daily_words")
+            await loadDailyWords()
+        }
+        
         await loadFirstDailyWord()
     }
     
@@ -76,6 +107,9 @@ class HomeViewModel: ObservableObject {
             dailyWords.setSuccess(response)
             lastRefreshTime = Date()
             
+            // Cache the response for instant future loads
+            LocalCache.saveDailyWords(response.words)
+            
             #if DEBUG
             print("✅ Daily words loaded: \(response.words.count) words at \(Date())")
             #endif
@@ -95,6 +129,37 @@ class HomeViewModel: ObservableObject {
             #endif
             
             dailyWords.setError(error)
+        }
+    }
+    
+    private func refreshInBackground() async {
+        do {
+            let request = APIRequest(
+                method: .GET,
+                path: "/daily"
+            )
+            
+            let response: DailyWordsResponse = try await APIService.shared.send(
+                request,
+                responseType: DailyWordsResponse.self
+            )
+            
+            // Update UI with fresh data
+            dailyWords.setSuccess(response)
+            lastRefreshTime = Date()
+            
+            // Cache the response
+            LocalCache.saveDailyWords(response.words)
+            
+            #if DEBUG
+            print("🔄 Background refresh completed: \(response.words.count) words")
+            #endif
+            
+        } catch {
+            #if DEBUG
+            print("⚠️ Background refresh failed: \(error)")
+            #endif
+            // Keep cached data on error
         }
     }
     
@@ -363,6 +428,81 @@ class HomeViewModel: ObservableObject {
             createdAt: Date(),
             updatedAt: Date()
         )
+    }
+    
+    // MARK: - Preload Functionality
+    
+    /// Preload next words for instant access
+    func preloadNextWords(count: Int = 3) async {
+        guard !isPreloading else { return }
+        isPreloading = true
+        
+        PerformanceTracker.shared.trackPreloadWords()
+        
+        do {
+            // Load preloaded words from cache first
+            if let cachedPreloaded = LocalCache.loadPreloadedWords(), !cachedPreloaded.isEmpty {
+                preloadedWords = cachedPreloaded
+                PerformanceTracker.shared.trackCacheHit(true, cacheType: "preloaded_words")
+                print("📱 Loaded \(cachedPreloaded.count) preloaded words from cache")
+            } else {
+                PerformanceTracker.shared.trackCacheHit(false, cacheType: "preloaded_words")
+            }
+            
+            // Fetch new words in parallel
+            let tasks = (0..<count).map { _ in
+                Task {
+                    do {
+                        let response: DailyWordsResponse = try await APIService.shared.getNextUnseenWord()
+                        return response.words
+                    } catch {
+                        print("⚠️ Failed to preload word: \(error)")
+                        return []
+                    }
+                }
+            }
+            
+            let results = await withTaskGroup(of: [DailyWord].self) { group in
+                for task in tasks {
+                    group.addTask { await task.value }
+                }
+                
+                var allWords: [DailyWord] = []
+                for await words in group {
+                    allWords.append(contentsOf: words)
+                }
+                return allWords
+            }
+            
+            // Update preloaded words
+            preloadedWords.append(contentsOf: results)
+            
+            // Cache the preloaded words
+            LocalCache.savePreloadedWords(preloadedWords)
+            
+            // Track preload performance
+            if let preloadTime = PerformanceTracker.shared.endTiming("preload_words") {
+                PerformanceTracker.shared.trackPreloadPerformance(wordCount: results.count, duration: preloadTime)
+            }
+            
+            print("✅ Preloaded \(results.count) new words")
+            
+        } catch {
+            print("❌ Preload failed: \(error)")
+        }
+        
+        isPreloading = false
+    }
+    
+    /// Get next preloaded word
+    func getNextPreloadedWord() -> DailyWord? {
+        guard !preloadedWords.isEmpty else { return nil }
+        return preloadedWords.removeFirst()
+    }
+    
+    /// Check if we have preloaded words available
+    var hasPreloadedWords: Bool {
+        return !preloadedWords.isEmpty
     }
 }
 
