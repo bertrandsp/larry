@@ -1,6 +1,21 @@
 import SwiftUI
 import AVFoundation
 
+// MARK: - VocabularyCard Model
+struct VocabularyCard: Identifiable, Codable {
+    let id: String
+    let term: String
+    let pronunciation: String
+    let partOfSpeech: String
+    let definition: String
+    let example: String
+    let imageUrl: String?
+    let synonyms: [String]
+    let antonyms: [String]
+    let relatedTerms: [String]
+    let difficulty: Int
+}
+
 struct VocabularyCardView: View {
     let card: VocabularyCard
     let cardHeight: CGFloat
