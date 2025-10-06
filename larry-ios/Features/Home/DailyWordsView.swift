@@ -41,13 +41,13 @@ struct DailyWordsView: View {
                                     // First daily word section
                                     firstDailyWordSection
                                     
-                                    // Swipeable daily words with VerticalTabView
+                                    // Simple vertical scrolling with TabView
                                     if !wordsToShow.isEmpty {
-                                        VerticalTabView(
-                                            cardCount: wordsToShow.count,
+                                        SimpleVerticalScrollView(
+                                            words: wordsToShow,
+                                            currentIndex: $currentIndex,
                                             onSwipeToNext: { await handleSwipeToNext() },
                                             onCardChanged: { index in
-                                                currentIndex = index
                                                 // Trigger preload when nearing the end
                                                 if index >= wordsToShow.count - 2 {
                                                     Task {
@@ -55,13 +55,7 @@ struct DailyWordsView: View {
                                                     }
                                                 }
                                             }
-                                        ) {
-                                            ForEach(Array(wordsToShow.enumerated()), id: \.element.id) { index, dailyWord in
-                                                EnhancedDailyWordCard(dailyWord: dailyWord)
-                                                    .frame(width: geometry.size.width, height: screenHeight * 0.8)
-                                                    .id(index)
-                                            }
-                                        }
+                                        )
                                     }
                                 }
                             }
@@ -166,7 +160,7 @@ struct DailyWordsView: View {
             currentWords = response.words
             // Start preloading in background
             Task {
-                await preloadNextWords(count: 2)
+            await preloadNextWords(count: 2)
             }
         }
     }

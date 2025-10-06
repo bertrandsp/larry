@@ -238,22 +238,6 @@ class APIService: ObservableObject {
         return try await send(request, responseType: DailyWordsResponse.self)
     }
     
-    /// Track user action on a delivered word
-    func trackDeliveryAction(deliveryId: String, action: DeliveryAction, wordbankId: String? = nil) async throws -> DeliveryActionResponse {
-        let requestBody = DeliveryActionRequest(
-            deliveryId: deliveryId,
-            action: action,
-            wordbankId: wordbankId
-        )
-        
-        let request = try APIRequest(
-            method: .POST,
-            path: "/first-daily/action",
-            body: requestBody
-        )
-        
-        return try await send(request, responseType: DeliveryActionResponse.self)
-    }
     
     /// Mark term relevance for vocabulary interactions
     func markTermRelevance(userId: String, termId: String, action: VocabularyAction) async throws {
