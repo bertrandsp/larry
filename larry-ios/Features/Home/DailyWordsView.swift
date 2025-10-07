@@ -155,6 +155,23 @@ struct DailyWordsView: View {
             print("📊 =====================================")
             #endif
         }
+        .onReceive(viewModel.$dailyWords) { newState in
+            if case .success(let response) = newState, currentWords.isEmpty {
+                #if DEBUG
+                print("🎬 Daily words loaded, initializing with \(response.words.count) words")
+                #endif
+                
+                currentWords = response.words
+                
+                // Start preloading in background
+                Task {
+                    #if DEBUG
+                    print("🎬 Starting preload of 2 additional words...")
+                    #endif
+                    await preloadNextWords(count: 2)
+                }
+            }
+        }
     }
     
     private var connectionStatusMessage: String {
