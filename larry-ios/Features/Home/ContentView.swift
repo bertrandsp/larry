@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+/*
+ This file is not used right now
+ */
 /// Main home screen showing daily words and navigation
 struct HomeView: View {
     @EnvironmentObject private var authManager: AuthManager

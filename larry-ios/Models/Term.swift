@@ -15,7 +15,7 @@ struct Term: Codable, Identifiable {
     let example: String? // Changed from 'exampleSentence' to match backend
     let pronunciation: String?
     let partOfSpeech: String? // Changed from enum to optional String to match backend
-    let difficulty: Int? // Changed from enum to optional Int to match backend
+    private let difficulty: FlexibleDifficulty? // Changed to support both Int and String from backend
     let etymology: String?
     let synonyms: [String]
     let antonyms: [String]
@@ -37,12 +37,65 @@ struct Term: Codable, Identifiable {
     var exampleSentence: String? { example }
     var difficultyLevel: DifficultyLevel {
         guard let difficulty = difficulty else { return .intermediate }
-        switch difficulty {
-        case 1: return .beginner
-        case 2: return .intermediate
-        case 3: return .advanced
-        case 4, 5: return .expert
-        default: return .intermediate
+        return difficulty.toDifficultyLevel()
+    }
+    
+    // Helper to decode difficulty from either Int or String
+    private enum FlexibleDifficulty: Codable {
+        case int(Int)
+        case string(String)
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let intValue = try? container.decode(Int.self) {
+                self = .int(intValue)
+            } else if let stringValue = try? container.decode(String.self) {
+                self = .string(stringValue)
+            } else {
+                throw DecodingError.typeMismatch(
+                    FlexibleDifficulty.self,
+                    DecodingError.Context(
+                        codingPath: decoder.codingPath,
+                        debugDescription: "Expected Int or String for difficulty"
+                    )
+                )
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .int(let value):
+                try container.encode(value)
+            case .string(let value):
+                try container.encode(value)
+            }
+        }
+        
+        func toDifficultyLevel() -> DifficultyLevel {
+            switch self {
+            case .int(let value):
+                switch value {
+                case 1: return .beginner
+                case 2: return .intermediate
+                case 3: return .advanced
+                case 4, 5: return .expert
+                default: return .intermediate
+                }
+            case .string(let value):
+                let lowercased = value.lowercased()
+                if lowercased.contains("beginner") || lowercased.contains("easy") {
+                    return .beginner
+                } else if lowercased.contains("intermediate") || lowercased.contains("medium") {
+                    return .intermediate
+                } else if lowercased.contains("advanced") {
+                    return .advanced
+                } else if lowercased.contains("expert") || lowercased.contains("hard") {
+                    return .expert
+                } else {
+                    return .intermediate
+                }
+            }
         }
     }
     var partOfSpeechEnum: PartOfSpeech {

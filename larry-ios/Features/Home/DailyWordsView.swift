@@ -135,6 +135,26 @@ struct DailyWordsView: View {
         } message: {
             Text(connectionStatusMessage)
         }
+        .onChange(of: currentWords.count) { oldValue, newValue in
+            #if DEBUG
+            print("📊 ===== WORDS STATE CHANGED =====")
+            print("📊 currentWords count: \(currentWords.count)")
+            print("📊 preloadedWords count: \(preloadedWords.count)")
+            print("📊 currentWords: \(currentWords.map { $0.term.term })")
+            print("📊 preloadedWords: \(preloadedWords.map { $0.term.term })")
+            print("📊 ==================================")
+            #endif
+        }
+        .onChange(of: preloadedWords.count) { oldValue, newValue in
+            #if DEBUG
+            print("📊 ===== PRELOADED WORDS CHANGED =====")
+            print("📊 currentWords count: \(currentWords.count)")
+            print("📊 preloadedWords count: \(preloadedWords.count)")
+            print("📊 currentWords: \(currentWords.map { $0.term.term })")
+            print("📊 preloadedWords: \(preloadedWords.map { $0.term.term })")
+            print("📊 =====================================")
+            #endif
+        }
     }
     
     private var connectionStatusMessage: String {
@@ -209,7 +229,7 @@ struct DailyWordsView: View {
                 }
             }
             
-            // Add preloaded words to the cache
+            // Add preloaded words to the cache with deduplication
             if !newWords.isEmpty {
                 // Move current preloaded words to current words if user already swiped past them
                 if currentIndex >= currentWords.count {
@@ -218,12 +238,26 @@ struct DailyWordsView: View {
                     preloadedWords.removeFirst(wordsToMove.count)
                 }
                 
-                // Add new words to preloaded cache
-                preloadedWords.append(contentsOf: newWords)
+                // Get all existing term IDs to prevent duplicates
+                let existingTermIds = Set(currentWords.map { $0.term.id } + preloadedWords.map { $0.term.id })
                 
-                #if DEBUG
-                print("✅ Preloading complete: \(preloadedWords.count) words cached")
-                #endif
+                // Filter out duplicates before adding to preloaded cache
+                let uniqueNewWords = newWords.filter { !existingTermIds.contains($0.term.id) }
+                
+                if !uniqueNewWords.isEmpty {
+                    preloadedWords.append(contentsOf: uniqueNewWords)
+                    
+                    #if DEBUG
+                    print("✅ Preloading complete: \(uniqueNewWords.count) unique words added, \(preloadedWords.count) total cached")
+                    if uniqueNewWords.count < newWords.count {
+                        print("⚠️ Filtered out \(newWords.count - uniqueNewWords.count) duplicate words")
+                    }
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("⚠️ All \(newWords.count) preloaded words were duplicates, skipped")
+                    #endif
+                }
             }
         } catch {
             #if DEBUG

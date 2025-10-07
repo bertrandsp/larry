@@ -146,6 +146,7 @@ router.get('/daily', async (req, res) => {
 
 /**
  * GET /daily/next - Get next unseen word for user (for swipe functionality)
+ * OPTIMIZED: Uses preload queue instead of generating on-demand
  */
 router.get('/daily/next', async (req, res) => {
   try {
@@ -166,7 +167,26 @@ router.get('/daily/next', async (req, res) => {
     
     console.log('🎯 Getting next unseen word for user:', userId);
 
-    const dailyWord = await getNextUnseenWord(userId);
+    // Try to get from preload queue first (FAST)
+    const queuedDelivery = await getNextQueuedDelivery(userId);
+    
+    let dailyWord;
+    if (queuedDelivery) {
+      console.log('✅ Found pre-generated word in queue, delivering instantly');
+      
+      // Mark as delivered
+      await markDeliveryAsDelivered(queuedDelivery.id);
+      
+      // Trigger background generation to refill queue (non-blocking)
+      // Note: Temporarily disabled due to Redis compatibility issues
+      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
+      
+      dailyWord = queuedDelivery;
+    } else {
+      // Fallback to on-demand generation (SLOW)
+      console.log('⚠️ No pre-generated words in queue, falling back to on-demand generation');
+      dailyWord = await getNextUnseenWord(userId);
+    }
 
     if (!dailyWord) {
       return res.status(400).json({ 
@@ -176,45 +196,49 @@ router.get('/daily/next', async (req, res) => {
     }
 
     // Convert to iOS app expected format
+    // Handle both queued delivery format and legacy format
+    const term = dailyWord.term || dailyWord;
+    const topic = dailyWord.term?.topic || dailyWord.topic;
+    
     const iosDailyWord = {
       id: dailyWord.id,
       user_id: userId,
       term: {
-        id: dailyWord.id,
-        term: dailyWord.term,
-        definition: dailyWord.definition,
-        example: dailyWord.example,
-        pronunciation: dailyWord.pronunciation || null,
-        partOfSpeech: dailyWord.partOfSpeech || null,
-        difficulty: dailyWord.difficulty || null,
-        etymology: dailyWord.etymology || null,
-        synonyms: dailyWord.synonyms || [],
-        antonyms: dailyWord.antonyms || [],
-        relatedTerms: (dailyWord.relatedTerms || []).map((rt: any) => ({
+        id: term.id,
+        term: term.term,
+        definition: term.definition,
+        example: term.example,
+        pronunciation: term.pronunciation || null,
+        partOfSpeech: term.partOfSpeech || null,
+        difficulty: term.difficulty || null,
+        etymology: term.etymology || null,
+        synonyms: term.synonyms || [],
+        antonyms: term.antonyms || [],
+        relatedTerms: (term.relatedTerms || []).map((rt: any) => ({
           term: rt.term || "Related term",
           difference: rt.difference || "Related concept"
         })),
-        tags: dailyWord.tags || [],
-        category: dailyWord.category || null,
-        complexityLevel: dailyWord.complexityLevel || null,
-        source: dailyWord.source || null,
-        confidenceScore: dailyWord.confidenceScore || null,
-        topicId: dailyWord.topic || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        tags: term.tags || [],
+        category: term.category || null,
+        complexityLevel: term.complexityLevel || null,
+        source: term.source || null,
+        confidenceScore: term.confidenceScore || null,
+        topicId: term.topicId || null,
+        createdAt: term.createdAt || new Date().toISOString(),
+        updatedAt: term.updatedAt || new Date().toISOString(),
         userProgress: null
       },
       topic: {
-        id: dailyWord.topicId || null,
-        name: dailyWord.topic || "General Vocabulary",
-        slug: dailyWord.topicSlug || (dailyWord.topic ? dailyWord.topic.toLowerCase().replace(/\s+/g, '-') : "general-vocabulary")
+        id: topic?.id || null,
+        name: topic?.name || "General Vocabulary",
+        slug: topic?.name ? topic.name.toLowerCase().replace(/\s+/g, '-') : "general-vocabulary"
       },
-      delivery_date: new Date(dailyWord.delivery.deliveredAt).toISOString(),
-      is_review: dailyWord.isReview,
-      spaced_repetition_bucket: dailyWord.wordbank.bucket,
-      ai_explanation: `This ${dailyWord.complexityLevel.toLowerCase()} vocabulary word from ${dailyWord.topic} will help expand your professional vocabulary.`,
-      contextual_example: dailyWord.example,
-      created_at: new Date().toISOString(),
+      delivery_date: new Date().toISOString(),
+      is_review: false,
+      spaced_repetition_bucket: 1,
+      ai_explanation: `This ${term.complexityLevel?.toLowerCase() || 'intermediate'} vocabulary word from ${topic?.name || 'General Vocabulary'} will help expand your professional vocabulary.`,
+      contextual_example: term.example,
+      created_at: term.createdAt || new Date().toISOString(),
       user_interaction: null
     };
 
