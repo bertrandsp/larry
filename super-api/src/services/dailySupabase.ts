@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase';
 import { parseVocabularyFields } from '../utils/vocabularyUtils';
 import { generateVocabulary } from './openAiService';
+import { prisma } from '../utils/prisma';
 
 export interface DailyWord {
   id: string;
@@ -37,11 +38,16 @@ export interface DailyWord {
   delivery: {
     id: string;
     deliveredAt: string;
+    openedAt?: Date;
+    action: string;
   };
   wordbank: {
     id: string;
     bucket: number;
     status: string;
+    lastReviewed?: Date;
+    nextReview?: Date;
+    reviewCount: number;
   };
   isReview: boolean;
   userProgress?: {
@@ -96,16 +102,8 @@ export async function getNextUnseenWord(userId: string): Promise<DailyWord | nul
   console.log(`🎯 Getting next unseen word for user ${userId}`);
   
   try {
-    if (!supabase) {
-      console.error('❌ Supabase client not initialized');
-      return null;
-    }
-
-    // Set user context for RLS
-    await supabase.rpc('set_current_user_id', { user_id: userId });
-
-    // Get a completely new word that user hasn't seen before
-    const newWord = await getNewWordFromUserTopics(userId);
+    // Use Prisma directly instead of Supabase for better reliability
+    const newWord = await getNewWordFromUserTopicsPrisma(userId);
     if (newWord) {
       console.log(`🆕 Returning unseen word: ${newWord.term}`);
       return newWord;
@@ -194,6 +192,188 @@ async function getNextReviewWord(userId: string): Promise<DailyWord | null> {
 
   } catch (error) {
     console.error('❌ Error getting review word:', error);
+    return null;
+  }
+}
+
+/**
+ * Get a new word from user's topics using Prisma (more reliable than Supabase)
+ */
+async function getNewWordFromUserTopicsPrisma(userId: string): Promise<DailyWord | null> {
+  try {
+    // Get user with their topics
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        topics: {
+          include: {
+            topic: true
+          }
+        }
+      }
+    });
+
+    if (!user || !user.topics || user.topics.length === 0) {
+      console.error('❌ User not found or has no topics');
+      return null;
+    }
+
+    // Get topic IDs
+    const topicIds = user.topics.map((ut: any) => ut.topicId);
+
+    // Find terms from user's topics that aren't already seen (in wordbank or delivered)
+    const existingWordbank = await prisma.wordbank.findMany({
+      where: { userId },
+      select: { termId: true }
+    });
+
+    const deliveredTerms = await prisma.delivery.findMany({
+      where: { userId },
+      select: { termId: true }
+    });
+
+    const existingTermIds = existingWordbank.map((w: any) => w.termId);
+    const deliveredTermIds = deliveredTerms.map((d: any) => d.termId);
+    const allSeenTermIds = [...new Set([...existingTermIds, ...deliveredTermIds])];
+
+    // Get available terms from user's topics that haven't been seen
+    const availableTerms = await prisma.term.findMany({
+      where: {
+        topicId: { in: topicIds },
+        moderationStatus: 'approved',
+        id: { notIn: allSeenTermIds }
+      },
+      include: {
+        topic: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+
+    // If no terms available, generate new vocabulary using OpenAI
+    if (availableTerms.length === 0) {
+      console.log('🚀 No terms available, generating new vocabulary with OpenAI...');
+      
+      // Select a random topic for generation
+      const randomTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
+      const generatedTerm = await generateVocabularyForTopic(randomTopic.topic.name, userId);
+      
+      if (generatedTerm) {
+        // Create delivery record
+        const delivery = await createDelivery(userId, generatedTerm.id);
+
+        // Add to wordbank
+        const wordbankEntry = await addToWordbank(userId, generatedTerm.id);
+
+        // Get related facts
+        const facts = await getFactsForTopic(generatedTerm.topicId);
+
+        // Parse rich vocabulary fields
+        const enrichedTerm = parseVocabularyFields(generatedTerm);
+
+        const dailyWord: DailyWord = {
+          id: generatedTerm.id,
+          term: generatedTerm.term,
+          definition: generatedTerm.definition,
+          example: generatedTerm.example,
+          category: generatedTerm.category || 'Vocabulary',
+          complexityLevel: generatedTerm.complexityLevel || 'Intermediate',
+          source: generatedTerm.source || 'AI Generated',
+          sourceUrl: generatedTerm.sourceUrl,
+          confidenceScore: generatedTerm.confidenceScore,
+          topic: generatedTerm.topic.name,
+          topicId: generatedTerm.topicId,
+          topicSlug: generatedTerm.topic.name.toLowerCase().replace(/\s+/g, '-'),
+          pronunciation: enrichedTerm.pronunciation,
+          partOfSpeech: enrichedTerm.partOfSpeech,
+          difficulty: enrichedTerm.difficulty,
+          etymology: enrichedTerm.etymology,
+          synonyms: enrichedTerm.synonyms,
+          antonyms: enrichedTerm.antonyms,
+          relatedTerms: enrichedTerm.relatedTerms,
+          tags: enrichedTerm.tags,
+          isReview: false,
+          wordbank: {
+            id: wordbankEntry.id,
+            bucket: wordbankEntry.bucket,
+            status: wordbankEntry.status,
+            lastReviewed: wordbankEntry.lastReviewed,
+            nextReview: wordbankEntry.nextReview,
+            reviewCount: wordbankEntry.reviewCount
+          },
+          delivery: {
+            id: delivery.id,
+            deliveredAt: delivery.deliveredAt,
+            openedAt: delivery.openedAt,
+            action: delivery.action
+          },
+          facts: facts || []
+        };
+
+        return dailyWord;
+      }
+    } else {
+      // Select a random term from available terms
+      const selectedTerm = availableTerms[Math.floor(Math.random() * availableTerms.length)];
+      
+      // Create delivery record
+      const delivery = await createDelivery(userId, selectedTerm.id);
+
+      // Add to wordbank
+      const wordbankEntry = await addToWordbank(userId, selectedTerm.id);
+
+      // Get related facts
+      const facts = await getFactsForTopic(selectedTerm.topicId);
+
+      // Parse rich vocabulary fields
+      const enrichedTerm = parseVocabularyFields(selectedTerm);
+
+      const dailyWord: DailyWord = {
+        id: selectedTerm.id,
+        term: selectedTerm.term,
+        definition: selectedTerm.definition,
+        example: selectedTerm.example,
+        category: selectedTerm.category || 'Vocabulary',
+        complexityLevel: selectedTerm.complexityLevel || 'Intermediate',
+        source: selectedTerm.source || 'Database',
+        sourceUrl: selectedTerm.sourceUrl,
+        confidenceScore: selectedTerm.confidenceScore,
+        topic: selectedTerm.topic.name,
+        topicId: selectedTerm.topicId,
+        topicSlug: selectedTerm.topic.name.toLowerCase().replace(/\s+/g, '-'),
+        pronunciation: enrichedTerm.pronunciation,
+        partOfSpeech: enrichedTerm.partOfSpeech,
+        difficulty: enrichedTerm.difficulty,
+        etymology: enrichedTerm.etymology,
+        synonyms: enrichedTerm.synonyms,
+        antonyms: enrichedTerm.antonyms,
+        relatedTerms: enrichedTerm.relatedTerms,
+        tags: enrichedTerm.tags,
+        isReview: false,
+        wordbank: {
+          id: wordbankEntry.id,
+          bucket: wordbankEntry.bucket,
+          status: wordbankEntry.status,
+          lastReviewed: wordbankEntry.lastReviewed,
+          nextReview: wordbankEntry.nextReview,
+          reviewCount: wordbankEntry.reviewCount
+        },
+        delivery: {
+          id: delivery.id,
+          deliveredAt: delivery.deliveredAt,
+          openedAt: delivery.openedAt,
+          action: delivery.action
+        },
+        facts: facts || []
+      };
+
+      return dailyWord;
+    }
+
+    console.log('⚠️ No available terms for user');
+    return null;
+  } catch (error: any) {
+    console.error('❌ Error getting new word from user topics:', error);
     return null;
   }
 }

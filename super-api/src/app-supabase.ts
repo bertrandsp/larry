@@ -52,9 +52,10 @@ app.use('/', websocketRoutes); // WebSocket health check endpoint
 setupWebSocketServer(server);
 
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Larry Backend Service running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Network: http://192.168.1.100:${PORT}/health`);
   console.log(`🔗 API base: http://localhost:${PORT}/user`);
   console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`🍎 Supabase integration active`);

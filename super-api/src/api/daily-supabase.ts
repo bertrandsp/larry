@@ -2,6 +2,7 @@ import express from 'express';
 import { getNextDailyWord, getNextUnseenWord, recordDailyWordAction } from '../services/dailySupabase';
 import { getNextQueuedDelivery, markDeliveryAsDelivered } from './daily/preload-service';
 import { generateNextBatchQueue } from '../queues/topicPipelineQueue';
+import { prisma } from '../utils/prisma';
 
 const router = express.Router();
 
@@ -39,7 +40,8 @@ router.get('/daily', async (req, res) => {
       await markDeliveryAsDelivered(queuedDelivery.id);
       
       // Trigger background generation for next batch (non-blocking)
-      generateNextBatchQueue.add({ userId }, { delay: 1000 });
+      // Temporarily disabled due to Redis compatibility issues
+      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
       
       const dailyWord = queuedDelivery;
       
@@ -72,7 +74,7 @@ router.get('/daily', async (req, res) => {
         topic: {
           id: dailyWord.term.topic.id,
           name: dailyWord.term.topic.name,
-          slug: dailyWord.term.topic.slug
+          slug: dailyWord.term.topic.name.toLowerCase().replace(/\s+/g, '-')
         },
         delivery_date: new Date().toISOString(),
         is_review: false,
@@ -101,9 +103,9 @@ router.get('/daily', async (req, res) => {
         await prisma.metricLog.create({
           data: {
             type: "daily_card_render_time",
-            userId: userId,
             message: `Daily word delivered in ${renderTime}ms`,
             metadata: {
+              userId: userId,
               renderTimeMs: renderTime,
               source: "pre_generated",
               timestamp: new Date().toISOString()
@@ -118,7 +120,8 @@ router.get('/daily', async (req, res) => {
     } else {
       // Fallback: trigger background generation but don't block
       console.log('⚠️ No pre-generated words available, triggering background generation');
-      generateNextBatchQueue.add({ userId });
+      // Temporarily disabled due to Redis compatibility issues
+      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
       
       return res.json({ 
         success: false,

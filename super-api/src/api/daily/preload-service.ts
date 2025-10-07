@@ -14,7 +14,7 @@ export async function getQueuedDeliveriesCount(userId: string): Promise<number> 
   return await prisma.delivery.count({
     where: { 
       userId, 
-      deliveredAt: null 
+      openedAt: null 
     },
   });
 }
@@ -23,7 +23,7 @@ export async function getNextQueuedDelivery(userId: string) {
   return await prisma.delivery.findFirst({
     where: { 
       userId, 
-      deliveredAt: null 
+      openedAt: null 
     },
     include: { 
       term: { 
@@ -41,6 +41,6 @@ export async function getNextQueuedDelivery(userId: string) {
 export async function markDeliveryAsDelivered(deliveryId: string) {
   return await prisma.delivery.update({
     where: { id: deliveryId },
-    data: { deliveredAt: new Date() }
+    data: { openedAt: new Date() }
   });
 }

@@ -60,7 +60,6 @@ model User {
 model Topic {
   id              String          @id @default(uuid())
   name            String          @unique
-  slug            String          @unique // URL-friendly identifier
   description     String? // Optional description for the topic
   category        String          @default("other") // Category for topic classification
   isCustom        Boolean         @default(false) // Whether this is a user-created topic
@@ -189,7 +188,7 @@ model Delivery {
   id          String         @id @default(uuid())
   userId      String
   termId      String
-  deliveredAt DateTime?      // null = queued, not yet delivered
+  deliveredAt DateTime       @default(now())
   openedAt    DateTime?
   action      DeliveryAction @default(NONE)
   createdAt   DateTime       @default(now())

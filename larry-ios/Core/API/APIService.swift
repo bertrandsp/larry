@@ -52,7 +52,7 @@ class APIService: ObservableObject {
             
             // Use network IP for both simulator and physical device compatibility
             // This allows both iOS Simulator and physical devices to connect
-            return "http://192.168.1.101:4001"
+            return "http://192.168.1.100:4001"
         }
         #endif
     }
