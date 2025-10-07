@@ -142,31 +142,46 @@ struct VocabularyActionResponse: Codable {
 extension FirstDailyWord {
     /// Convert FirstDailyWord to DailyWord for compatibility with EnhancedDailyWordCard
     func toDailyWord() -> DailyWord {
+        // Create Term JSON data and decode it
+        let termData: [String: Any] = [
+            "id": self.id,
+            "term": self.term,
+            "definition": self.definition,
+            "example": self.example as Any,
+            "pronunciation": self.pronunciation as Any,
+            "partOfSpeech": self.partOfSpeech as Any,
+            "difficulty": self.difficulty as Any,
+            "etymology": self.etymology as Any,
+            "synonyms": self.synonyms,
+            "antonyms": self.antonyms,
+            "relatedTerms": self.relatedTerms.map { ["term": $0.term, "difference": $0.difference] },
+            "tags": self.tags,
+            "category": self.category as Any,
+            "complexityLevel": self.complexityLevel as Any,
+            "source": self.source as Any,
+            "confidenceScore": self.confidenceScore,
+            "topicId": self.topic?.id as Any,
+            "createdAt": ISO8601DateFormatter().string(from: Date()),
+            "updatedAt": ISO8601DateFormatter().string(from: Date())
+        ]
+        
+        // Convert to Term via JSON encoding/decoding
+        let term: Term
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: termData)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            term = try decoder.decode(Term.self, from: jsonData)
+        } catch {
+            // Fallback to preview data if decoding fails
+            print("⚠️ Failed to decode Term from FirstDailyWord: \(error)")
+            term = Term.previewData
+        }
+        
         return DailyWord(
             id: self.id,
-            userId: "preview-user-id", // This will be set by the API response
-            term: Term(
-                id: self.id,
-                term: self.term,
-                definition: self.definition,
-                example: self.example,
-                pronunciation: self.pronunciation,
-                partOfSpeech: self.partOfSpeech,
-                difficulty: self.difficulty,
-                etymology: self.etymology,
-                synonyms: self.synonyms,
-                antonyms: self.antonyms,
-                relatedTerms: self.relatedTerms,
-                tags: self.tags,
-                category: self.category,
-                complexityLevel: self.complexityLevel,
-                source: self.source,
-                confidenceScore: self.confidenceScore,
-                topicId: self.topic?.id,
-                createdAt: Date(),
-                updatedAt: Date(),
-                userProgress: nil
-            ),
+            userId: "preview-user-id",
+            term: term,
             topic: self.topic,
             deliveryDate: Date(),
             isReview: false,
