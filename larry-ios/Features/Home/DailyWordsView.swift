@@ -28,35 +28,32 @@ struct DailyWordsView: View {
                         enhancedLoadingView
                         
                     case .success(let response):
-                        if response.words.isEmpty && (viewModel.firstDailyWord.data?.dailyWord == nil) {
+                        // Use currentWords + preloadedWords for display with swipe functionality
+                        let wordsToShow = currentWords.isEmpty ? response.words : (currentWords + preloadedWords)
+                        
+                        // Show empty view only if we have no words at all (including preloaded)
+                        if wordsToShow.isEmpty && (viewModel.firstDailyWord.data?.dailyWord == nil) {
                             enhancedEmptyView
                         } else {
-                            // Use currentWords + preloadedWords for display with swipe functionality
-                            let wordsToShow = currentWords.isEmpty ? response.words : (currentWords + preloadedWords)
-                            
-                            if wordsToShow.isEmpty && (viewModel.firstDailyWord.data?.dailyWord == nil) {
-                                enhancedEmptyView
-                            } else {
-                                VStack(spacing: 0) {
-                                    // First daily word section
-                                    firstDailyWordSection
-                                    
-                                    // Simple vertical scrolling with TabView
-                                    if !wordsToShow.isEmpty {
-                                        SimpleVerticalScrollView(
-                                            words: wordsToShow,
-                                            currentIndex: $currentIndex,
-                                            onSwipeToNext: { await handleSwipeToNext() },
-                                            onCardChanged: { index in
-                                                // Trigger preload when nearing the end
-                                                if index >= wordsToShow.count - 2 {
-                                                    Task {
-                                                        await preloadNextWords()
-                                                    }
+                            VStack(spacing: 0) {
+                                // First daily word section
+                                firstDailyWordSection
+                                
+                                // Simple vertical scrolling with TabView
+                                if !wordsToShow.isEmpty {
+                                    SimpleVerticalScrollView(
+                                        words: wordsToShow,
+                                        currentIndex: $currentIndex,
+                                        onSwipeToNext: { await handleSwipeToNext() },
+                                        onCardChanged: { index in
+                                            // Trigger preload when nearing the end
+                                            if index >= wordsToShow.count - 2 {
+                                                Task {
+                                                    await preloadNextWords()
                                                 }
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
                         }
