@@ -1,6 +1,7 @@
 import express from 'express';
 import { getNextDailyWord, getNextUnseenWord, recordDailyWordAction } from '../services/dailySupabase';
 import { getNextQueuedDelivery, markDeliveryAsDelivered } from './daily/preload-service';
+import { getNextQueuedDeliveryForActiveTopics, cleanupStaleDeliveries } from './daily/topic-cleanup-service';
 import { generateNextBatchQueue } from '../queues/topicPipelineQueue';
 import { prisma } from '../utils/prisma';
 
@@ -30,8 +31,13 @@ router.get('/daily', async (req, res) => {
     
     console.log('🎯 Getting daily word for user:', userId);
 
+
+    // Clean up stale deliveries from disabled topics (non-blocking)
+    cleanupStaleDeliveries(userId).catch(err => {
+      console.error("Cleanup warning:", err.message);
+    });
     // Try to get from pre-generated queue first (instant)
-    const queuedDelivery = await getNextQueuedDelivery(userId);
+    const queuedDelivery = await getNextQueuedDeliveryForActiveTopics(userId);
 
     if (queuedDelivery) {
       console.log('✅ Found pre-generated word, delivering instantly');
@@ -166,7 +172,7 @@ router.get('/daily/next', async (req, res) => {
     console.log('🎯 Getting next unseen word for user:', userId);
 
     // Try to get from preload queue first (FAST)
-    const queuedDelivery = await getNextQueuedDelivery(userId);
+    const queuedDelivery = await getNextQueuedDeliveryForActiveTopics(userId);
     
     let dailyWord;
     if (queuedDelivery) {
