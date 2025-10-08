@@ -1,4 +1,4 @@
-import { prisma } from "../utils/prisma";
+import { prismaDirect as prisma } from "../utils/prisma-direct";
 import { generateVocabulary } from "../services/openAiService";
 import { addDeliveryToQueue, getQueuedDeliveriesCount } from "../api/daily/preload-service";
 

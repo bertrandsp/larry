@@ -1,7 +1,9 @@
 import { prisma } from "../../utils/prisma";
+import { prismaDirect } from "../../utils/prisma-direct";
 
 /**
  * Clean up deliveries for topics that user no longer has enabled
+ * Uses regular prisma (pooled) since this is called from API endpoints
  */
 export async function cleanupStaleDeliveries(userId: string): Promise<number> {
   console.log(`🧹 Cleaning up stale deliveries for user: ${userId}`);
@@ -85,6 +87,7 @@ export async function cleanupStaleDeliveries(userId: string): Promise<number> {
 
 /**
  * Get queue-aware delivery that respects user's current topics
+ * Uses regular prisma (pooled) since this is called from API endpoints
  */
 export async function getNextQueuedDeliveryForActiveTopics(userId: string) {
   try {
@@ -136,6 +139,7 @@ export async function getNextQueuedDeliveryForActiveTopics(userId: string) {
 
 /**
  * Trigger immediate generation for a newly added topic
+ * Uses prismaDirect since this runs in background, not during API request
  */
 export async function generateForNewTopic(userId: string, topicId: string, topicName: string): Promise<void> {
   console.log(`🆕 Generating initial words for new topic: ${topicName}`);
@@ -143,8 +147,8 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
   try {
     const { generateVocabulary } = await import('../../services/openAiService');
     
-    // Get user preferences
-    const user = await prisma.user.findUnique({
+    // Get user preferences using direct connection
+    const user = await prismaDirect.user.findUnique({
       where: { id: userId }
     });
 
@@ -163,9 +167,9 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
 
     console.log(`✅ Generated ${result.terms.length} terms for new topic: ${topicName}`);
 
-    // Save each term and add to delivery queue
+    // Save each term and add to delivery queue using direct connection
     for (const termData of result.terms) {
-      const term = await prisma.term.create({
+      const term = await prismaDirect.term.create({
         data: {
           topicId,
           term: termData.term,
@@ -182,7 +186,7 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
       });
 
       // Add to delivery queue
-      await prisma.delivery.create({
+      await prismaDirect.delivery.create({
         data: {
           userId,
           termId: term.id
@@ -198,4 +202,3 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
     // Don't throw - this runs in background
   }
 }
-
