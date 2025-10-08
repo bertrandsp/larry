@@ -196,48 +196,49 @@ router.get('/daily/next', async (req, res) => {
     }
 
     // Convert to iOS app expected format
-    // Handle both queued delivery format and legacy format
-    const term = dailyWord.term || dailyWord;
-    const topic = dailyWord.term?.topic || dailyWord.topic;
+    // Handle both queued delivery format (nested term object) and flat DailyWord format
+    const isNestedFormat = dailyWord.term && typeof dailyWord.term === 'object';
+    const term = isNestedFormat ? dailyWord.term : dailyWord;
+    const topic = isNestedFormat ? dailyWord.term.topic : { name: (dailyWord as any).topic, id: (dailyWord as any).topicId };
     
     const iosDailyWord = {
       id: dailyWord.id,
       user_id: userId,
       term: {
-        id: term.id,
-        term: term.term,
-        definition: term.definition,
-        example: term.example,
-        pronunciation: term.pronunciation || null,
-        partOfSpeech: term.partOfSpeech || null,
-        difficulty: term.difficulty || null,
-        etymology: term.etymology || null,
-        synonyms: term.synonyms || [],
-        antonyms: term.antonyms || [],
-        relatedTerms: (term.relatedTerms || []).map((rt: any) => ({
+        id: term.id || dailyWord.id,
+        term: term.term || (dailyWord as any).term,
+        definition: term.definition || (dailyWord as any).definition,
+        example: term.example || (dailyWord as any).example,
+        pronunciation: term.pronunciation || (dailyWord as any).pronunciation || null,
+        partOfSpeech: term.partOfSpeech || (dailyWord as any).partOfSpeech || null,
+        difficulty: term.difficulty || (dailyWord as any).difficulty || null,
+        etymology: term.etymology || (dailyWord as any).etymology || null,
+        synonyms: term.synonyms || (dailyWord as any).synonyms || [],
+        antonyms: term.antonyms || (dailyWord as any).antonyms || [],
+        relatedTerms: ((term.relatedTerms || (dailyWord as any).relatedTerms || []) as any[]).map((rt: any) => ({
           term: rt.term || "Related term",
           difference: rt.difference || "Related concept"
         })),
-        tags: term.tags || [],
-        category: term.category || null,
-        complexityLevel: term.complexityLevel || null,
-        source: term.source || null,
-        confidenceScore: term.confidenceScore || null,
-        topicId: term.topicId || null,
+        tags: term.tags || (dailyWord as any).tags || [],
+        category: term.category || (dailyWord as any).category || null,
+        complexityLevel: term.complexityLevel || (dailyWord as any).complexityLevel || null,
+        source: term.source || (dailyWord as any).source || null,
+        confidenceScore: term.confidenceScore || (dailyWord as any).confidenceScore || null,
+        topicId: term.topicId || (dailyWord as any).topicId || null,
         createdAt: term.createdAt || new Date().toISOString(),
         updatedAt: term.updatedAt || new Date().toISOString(),
         userProgress: null
       },
       topic: {
-        id: topic?.id || null,
-        name: topic?.name || "General Vocabulary",
-        slug: topic?.name ? topic.name.toLowerCase().replace(/\s+/g, '-') : "general-vocabulary"
+        id: topic?.id || (dailyWord as any).topicId || null,
+        name: topic?.name || (dailyWord as any).topic || "General Vocabulary",
+        slug: (topic?.name || (dailyWord as any).topic || (dailyWord as any).topicSlug) ? (topic?.name || (dailyWord as any).topic).toLowerCase().replace(/\s+/g, '-') : "general-vocabulary"
       },
       delivery_date: new Date().toISOString(),
-      is_review: false,
+      is_review: (dailyWord as any).isReview || false,
       spaced_repetition_bucket: 1,
-      ai_explanation: `This ${term.complexityLevel?.toLowerCase() || 'intermediate'} vocabulary word from ${topic?.name || 'General Vocabulary'} will help expand your professional vocabulary.`,
-      contextual_example: term.example,
+      ai_explanation: `This ${((dailyWord as any).complexityLevel || 'intermediate').toLowerCase()} vocabulary word from ${topic?.name || (dailyWord as any).topic || 'General Vocabulary'} will help expand your professional vocabulary.`,
+      contextual_example: term.example || (dailyWord as any).example,
       created_at: term.createdAt || new Date().toISOString(),
       user_interaction: null
     };
