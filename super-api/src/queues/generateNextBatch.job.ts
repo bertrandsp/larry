@@ -1,4 +1,4 @@
-import { prismaDirect as prisma } from "../utils/prisma-direct";
+import { prisma } from "../utils/prisma"; // Use pooled connection for workers
 import { generateVocabulary } from "../services/openAiService";
 import { addDeliveryToQueue, getQueuedDeliveriesCount } from "../api/daily/preload-service";
 

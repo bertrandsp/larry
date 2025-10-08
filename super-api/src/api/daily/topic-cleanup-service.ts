@@ -1,5 +1,4 @@
-import { prisma } from "../../utils/prisma";
-import { prismaDirect } from "../../utils/prisma-direct";
+import { prisma } from "../../utils/prisma"; // Use pooled connection for all operations
 
 /**
  * Clean up deliveries for topics that user no longer has enabled
@@ -139,7 +138,7 @@ export async function getNextQueuedDeliveryForActiveTopics(userId: string) {
 
 /**
  * Trigger immediate generation for a newly added topic
- * Uses prismaDirect since this runs in background, not during API request
+ * Uses pooled connection (safe for background operations with reasonable concurrency)
  */
 export async function generateForNewTopic(userId: string, topicId: string, topicName: string): Promise<void> {
   console.log(`🆕 Generating initial words for new topic: ${topicName}`);
@@ -147,8 +146,8 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
   try {
     const { generateVocabulary } = await import('../../services/openAiService');
     
-    // Get user preferences using direct connection
-    const user = await prismaDirect.user.findUnique({
+    // Get user preferences using pooled connection
+    const user = await prisma.user.findUnique({
       where: { id: userId }
     });
 
@@ -167,9 +166,9 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
 
     console.log(`✅ Generated ${result.terms.length} terms for new topic: ${topicName}`);
 
-    // Save each term and add to delivery queue using direct connection
+    // Save each term and add to delivery queue using pooled connection
     for (const termData of result.terms) {
-      const term = await prismaDirect.term.create({
+      const term = await prisma.term.create({
         data: {
           topicId,
           term: termData.term,
@@ -186,7 +185,7 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
       });
 
       // Add to delivery queue
-      await prismaDirect.delivery.create({
+      await prisma.delivery.create({
         data: {
           userId,
           termId: term.id
