@@ -186,6 +186,12 @@ router.get('/daily/next', async (req, res) => {
       // Fallback to on-demand generation (SLOW)
       console.log('⚠️ No pre-generated words in queue, falling back to on-demand generation');
       dailyWord = await getNextUnseenWord(userId);
+      
+      // Mark on-demand word as delivered too (prevent duplicates)
+      if (dailyWord && (dailyWord as any).delivery?.id) {
+        await markDeliveryAsDelivered((dailyWord as any).delivery.id);
+        console.log('✅ Marked on-demand word as delivered');
+      }
     }
 
     if (!dailyWord) {
