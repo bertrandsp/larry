@@ -1,13 +1,19 @@
 import { Worker } from 'bullmq';
-import Redis from 'ioredis';
 import { prisma } from '../utils/prisma';
 import { TopicGenerationJob } from '../queues/topicPipelineQueue';
 import { generateTermsAndFacts } from '../services/termService';
 
-// Redis connection
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-});
+// Redis connection options for Redis 8.x compatibility
+const redisOptions = {
+  host: 'localhost',
+  port: 6379,
+  maxRetriesPerRequest: null, // Required for BullMQ with Redis 8.x
+  enableReadyCheck: false,
+  retryStrategy(times: number) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+};
 
 // Topic generation worker with enhanced pipeline
 const topicWorker = new Worker(
@@ -31,7 +37,7 @@ const topicWorker = new Worker(
     }
   },
   {
-    connection: redis,
+    connection: redisOptions,
     concurrency: 3, // Process up to 3 jobs concurrently (reduced for API rate limits)
   }
 );

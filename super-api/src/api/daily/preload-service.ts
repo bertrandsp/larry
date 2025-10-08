@@ -4,8 +4,9 @@ export async function addDeliveryToQueue(userId: string, termId: string) {
   await prisma.delivery.create({
     data: { 
       userId, 
-      termId, 
-      deliveredAt: null // null = queued, not yet delivered
+      termId
+      // deliveredAt will use default (now())
+      // openedAt will be null (meaning queued but not opened yet)
     },
   });
 }

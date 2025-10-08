@@ -1,12 +1,21 @@
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 
-// Redis connection
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// Create Redis connection options for Redis 8.x compatibility
+const redisOptions = {
+  host: 'localhost',
+  port: 6379,
+  maxRetriesPerRequest: null, // Required for BullMQ with Redis 8.x
+  enableReadyCheck: false,
+  retryStrategy(times: number) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+};
 
 // Topic processing queue with enhanced configuration
 export const topicPipelineQueue = new Queue('generate-topic-pipeline', {
-  connection: redis,
+  connection: redisOptions,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -18,9 +27,9 @@ export const topicPipelineQueue = new Queue('generate-topic-pipeline', {
   },
 });
 
-// Daily word pre-generation queue
+// Daily word pre-generation queue - separate connection
 export const generateNextBatchQueue = new Queue('generate-next-batch', {
-  connection: redis,
+  connection: redisOptions,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
@@ -40,17 +49,13 @@ export interface TopicGenerationJob {
   userTier?: string;
 }
 
-// Queue event handlers - commented out due to TypeScript issues
-// topicPipelineQueue.on('completed', (job: any) => {
-//   console.log(`✅ Topic generation completed for job ${job.id}: ${job.data.topicName}`);
-// });
+// Queue event handlers
+topicPipelineQueue.on('error', (err: any) => {
+  console.error('❌ Topic pipeline queue error:', err);
+});
 
-// topicPipelineQueue.on('failed', (job: any, err: any) => {
-//   console.error(`❌ Topic generation failed for job ${job.id}:`, err.message);
-// });
-
-// topicPipelineQueue.on('error', (err: any) => {
-//   console.error('❌ Topic pipeline queue error:', err);
-// });
+generateNextBatchQueue.on('error', (err: any) => {
+  console.error('❌ Generate next batch queue error:', err);
+});
 
 export default topicPipelineQueue;

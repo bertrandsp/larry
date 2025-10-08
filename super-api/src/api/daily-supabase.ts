@@ -40,8 +40,7 @@ router.get('/daily', async (req, res) => {
       await markDeliveryAsDelivered(queuedDelivery.id);
       
       // Trigger background generation for next batch (non-blocking)
-      // Temporarily disabled due to Redis compatibility issues
-      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
+      generateNextBatchQueue.add("batch-gen", { userId: userId }, { delay: 1000 });
       
       const dailyWord = queuedDelivery;
       
@@ -120,8 +119,7 @@ router.get('/daily', async (req, res) => {
     } else {
       // Fallback: trigger background generation but don't block
       console.log('⚠️ No pre-generated words available, triggering background generation');
-      // Temporarily disabled due to Redis compatibility issues
-      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
+      generateNextBatchQueue.add("batch-gen", { userId: userId }, { delay: 1000 });
       
       return res.json({ 
         success: false,
@@ -178,8 +176,7 @@ router.get('/daily/next', async (req, res) => {
       await markDeliveryAsDelivered(queuedDelivery.id);
       
       // Trigger background generation to refill queue (non-blocking)
-      // Note: Temporarily disabled due to Redis compatibility issues
-      // generateNextBatchQueue.add({ userId: userId }, { delay: 1000 });
+      generateNextBatchQueue.add("batch-gen", { userId: userId }, { delay: 1000 });
       
       dailyWord = queuedDelivery;
     } else {

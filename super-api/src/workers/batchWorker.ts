@@ -1,16 +1,24 @@
 import { Worker } from 'bullmq';
-import Redis from 'ioredis';
 import { generateNextBatchJob } from '../queues/generateNextBatch.job';
 
-// Redis connection
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// Redis connection options for Redis 8.x compatibility
+const redisOptions = {
+  host: 'localhost',
+  port: 6379,
+  maxRetriesPerRequest: null, // Required for BullMQ with Redis 8.x
+  enableReadyCheck: false,
+  retryStrategy(times: number) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+};
 
 // Create worker for batch generation
 const batchWorker = new Worker('generate-next-batch', async (job) => {
   console.log(`🔄 Processing batch generation job for user: ${job.data.userId}`);
   await generateNextBatchJob(job.data);
 }, {
-  connection: redis,
+  connection: redisOptions,
   concurrency: 5, // Process up to 5 batch generation jobs concurrently
 });
 

@@ -7,7 +7,13 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
   
   const user = await prisma.user.findUnique({ 
     where: { id: userId }, 
-    include: { topics: true } 
+    include: { 
+      topics: {
+        include: {
+          topic: true
+        }
+      }
+    } 
   });
   
   if (!user) {
@@ -25,30 +31,61 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
   console.log(`📊 Current queued deliveries: ${queued}`);
 
   if (queued >= 5) {
-    console.log(`✅ Sufficient cache exists for user: ${userId}`);
+    console.log(`✅ Sufficient cache exists for user: ${userId} (${queued} words queued)`);
     return; // already have enough cache
   }
 
   const needed = 5 - queued;
-  console.log(`🎯 Generating ${needed} new words for user: ${userId}`);
+  console.log(`🎯 Need to generate ${needed} new words for user: ${userId}`);
 
   try {
     // Select a random topic from user's topics
-    const randomTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
+    const userTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
+    const topicName = userTopic.topic.name;
     
-    const newWords = await generateVocabulary({
-      topic: randomTopic.topicId,
+    console.log(`🎲 Selected topic: ${topicName} for batch generation`);
+    
+    // Generate vocabulary for the selected topic
+    const result = await generateVocabulary({
+      topic: topicName,
       numTerms: needed,
+      termSelectionLevel: user.preferredDifficulty as any || 'intermediate',
+      definitionComplexityLevel: user.preferredDifficulty as any || 'intermediate',
     });
 
-    console.log(`✅ Generated ${newWords.length} words for topic: ${randomTopic.topicId}`);
-
-    // Add each word to the delivery queue
-    for (const word of newWords) {
-      await addDeliveryToQueue(userId, word.termId);
+    if (!result || !result.terms || result.terms.length === 0) {
+      console.error(`❌ No terms generated for topic: ${topicName}`);
+      return;
     }
 
-    console.log(`✅ Successfully queued ${newWords.length} words for user: ${userId}`);
+    console.log(`✅ Generated ${result.terms.length} terms for topic: ${topicName}`);
+
+    // Save each term and add to delivery queue
+    for (const termData of result.terms) {
+      // Create term in database
+      const term = await prisma.term.create({
+        data: {
+          topicId: userTopic.topicId,
+          term: termData.term,
+          definition: termData.definition,
+          example: termData.example || termData.definition,
+          category: 'Vocabulary',
+          complexityLevel: termData.complexityLevel || 'Intermediate',
+          source: 'AI Generated',
+          confidenceScore: 0.8,
+          moderationStatus: 'approved', // Auto-approve generated terms
+          gptGenerated: true,
+          verified: true,
+        }
+      });
+
+      // Add to delivery queue
+      await addDeliveryToQueue(userId, term.id);
+      
+      console.log(`📦 Queued term: ${term.term} (ID: ${term.id})`);
+    }
+
+    console.log(`✅ Successfully queued ${result.terms.length} words for user: ${userId}`);
   } catch (error) {
     console.error(`❌ Error generating batch for user ${userId}:`, error);
     throw error;
