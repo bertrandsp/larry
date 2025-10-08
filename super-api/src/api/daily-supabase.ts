@@ -91,7 +91,6 @@ router.get('/daily', async (req, res) => {
       };
 
       const iosResponse = {
-        success: true,
         words: [iosDailyWord],
         total_count: 1,
         remaining_today: 2,
@@ -128,13 +127,11 @@ router.get('/daily', async (req, res) => {
       generateNextBatchQueue.add("batch-gen", { userId: userId }, { delay: 1000 });
       
       return res.json({ 
-        success: false,
         words: [],
         total_count: 0,
         remaining_today: 0,
         next_delivery_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        streak_count: 0,
-        message: 'Generating your next word...'
+        streak_count: 0
       });
     }
 
@@ -246,7 +243,6 @@ router.get('/daily/next', async (req, res) => {
     };
 
     const iosResponse = {
-      success: true,
       words: [iosDailyWord],
       total_count: 1,
       remaining_today: 999, // Indicate unlimited for swipe functionality
