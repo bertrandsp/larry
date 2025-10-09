@@ -53,15 +53,15 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
       definitionComplexityLevel: user.preferredDifficulty as any || 'intermediate',
     });
 
-    if (!result || !result.terms || result.terms.length === 0) {
+    if (!result || !result.response || !result.response.terms || result.response.terms.length === 0) {
       console.error(`❌ No terms generated for topic: ${topicName}`);
       return;
     }
 
-    console.log(`✅ Generated ${result.terms.length} terms for topic: ${topicName}`);
+    console.log(`✅ Generated ${result.response.terms.length} terms for topic: ${topicName}`);
 
     // Save each term and add to delivery queue
-    for (const termData of result.terms) {
+    for (const termData of result.response.terms) {
       // Create term in database
       const term = await prisma.term.create({
         data: {
@@ -85,7 +85,7 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
       console.log(`📦 Queued term: ${term.term} (ID: ${term.id})`);
     }
 
-    console.log(`✅ Successfully queued ${result.terms.length} words for user: ${userId}`);
+    console.log(`✅ Successfully queued ${result.response.terms.length} words for user: ${userId}`);
   } catch (error) {
     console.error(`❌ Error generating batch for user ${userId}:`, error);
     throw error;
