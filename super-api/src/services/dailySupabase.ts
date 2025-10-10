@@ -256,7 +256,7 @@ async function getNewWordFromUserTopicsPrisma(userId: string): Promise<DailyWord
       
       // Select a random topic for generation
       const randomTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
-      const generatedTerm = await generateVocabularyForTopic(randomTopic.topic.name, userId);
+      const generatedTerm = await generateVocabularyForTopic(randomTopic.topicId, randomTopic.topic.name, userId);
       
       if (generatedTerm) {
         // Create delivery record
@@ -453,7 +453,7 @@ async function getNewWordFromUserTopics(userId: string): Promise<DailyWord | nul
       
       // Select a random topic for generation
       const randomTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
-      const generatedTerm = await generateVocabularyForTopic(randomTopic.topic.name, userId);
+      const generatedTerm = await generateVocabularyForTopic(randomTopic.topicId, randomTopic.topic.name, userId);
       
       if (generatedTerm) {
         // Create delivery record
@@ -772,26 +772,14 @@ export async function recordDailyWordAction(
 /**
  * Generate vocabulary for a specific topic using OpenAI
  */
-async function generateVocabularyForTopic(topicName: string, userId: string): Promise<any> {
+async function generateVocabularyForTopic(topicId: string, topicName: string, userId: string): Promise<any> {
   try {
-    console.log(`🤖 Generating vocabulary for topic: ${topicName}`);
-    
-    // Get the topic ID first
-    const { data: topic, error: topicError } = await supabase
-      .from('Topic')
-      .select('id')
-      .eq('name', topicName)
-      .single();
-
-    if (topicError || !topic) {
-      console.error('❌ Topic not found:', topicError);
-      return null;
-    }
+    console.log(`🤖 Generating vocabulary for topic: ${topicName} (ID: ${topicId})`);
 
     // Fetch existing terms for this topic to avoid duplicates
     const existingTerms = await prisma.term.findMany({
       where: {
-        topicId: topic.id
+        topicId: topicId
       },
       select: {
         term: true
@@ -834,7 +822,7 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
     // Create term in database
     const termData = {
       id: `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      topicId: topic.id,
+      topicId: topicId,
       term: generatedTerm.term,
       definition: generatedTerm.definition,
       example: generatedTerm.examples?.[0] || generatedTerm.definition,
@@ -879,7 +867,7 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
             *,
             topic:Topic(*)
           `)
-          .eq('topicId', topic.id)
+          .eq('topicId', topicId)
           .eq('term', generatedTerm.term)
           .single();
         
@@ -895,7 +883,7 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
     if (response.facts && response.facts.length > 0) {
       const factData = {
         id: `fact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        topicId: topic.id,
+        topicId: topicId,
         fact: response.facts[0],
         category: 'General',
         source: 'AI Generated',

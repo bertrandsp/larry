@@ -62,10 +62,19 @@ export const buildPrompt = (params: VocabularyParams): string => {
   
   // Build existing terms exclusion instruction
   const existingTermsInstruction = existingTerms && existingTerms.length > 0 
-    ? `\n\n🚫 CRITICAL: AVOID THESE EXISTING TERMS (${existingTerms.length} terms already in database):
-${existingTerms.slice(0, 100).join(', ')}${existingTerms.length > 100 ? `... and ${existingTerms.length - 100} more` : ''}
+    ? `\n\n🚫 CRITICAL DUPLICATE PREVENTION - READ CAREFULLY:
+There are ${existingTerms.length} existing terms already in the database for this topic.
+DO NOT generate ANY term that appears in this list:
 
-⚠️ You MUST generate DIFFERENT terms that are NOT in the list above. Generate new, fresh vocabulary terms that haven't been covered yet.`
+${existingTerms.slice(0, 150).join(', ')}${existingTerms.length > 150 ? `... and ${existingTerms.length - 150} more` : ''}
+
+⚠️ IMPORTANT: Recent statistics show ~40% of generated terms are duplicates. You MUST:
+1. Generate COMPLETELY DIFFERENT terms that are NOT in the list above
+2. Check EVERY term you generate against the exclusion list
+3. If you accidentally include a duplicate, it will be rejected and wasted
+4. Focus on generating fresh, unique vocabulary that hasn't been covered yet
+
+Generate new, creative terms that expand the topic in directions not yet explored.`
     : '';
   
   return `You are a vocabulary coach that helps users deeply understand any topic by generating a structured set of vocabulary terms and related facts.

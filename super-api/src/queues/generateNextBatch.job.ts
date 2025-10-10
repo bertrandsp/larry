@@ -36,7 +36,8 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
   }
 
   const needed = 5 - queued;
-  console.log(`🎯 Need to generate ${needed} new words for user: ${userId}`);
+  const requestCount = Math.ceil(needed * 2); // Request 2x to account for ~40% duplicate rate
+  console.log(`🎯 Need to generate ${needed} new words for user: ${userId} (requesting ${requestCount} to account for duplicates)`);
 
   try {
     // Select a random topic from user's topics
@@ -62,9 +63,22 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
     // Generate vocabulary for the selected topic
     const result = await generateVocabulary({
       topic: topicName,
-      numTerms: needed,
+      numTerms: requestCount,
+      definitionStyle: 'formal',
+      sentenceRange: '2-3',
+      numExamples: 1,
+      numFacts: 0,
       termSelectionLevel: user.preferredDifficulty as any || 'intermediate',
       definitionComplexityLevel: user.preferredDifficulty as any || 'intermediate',
+      domainContext: topicName,
+      language: 'en',
+      useAnalogy: false,
+      includeSynonyms: true,
+      includeAntonyms: false,
+      includeRelatedTerms: true,
+      includeEtymology: false,
+      highlightRootWords: false,
+      openAiFirst: true,
       existingTerms: existingTermsList, // Pass existing terms to avoid duplicates
     });
 
@@ -73,7 +87,8 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
       return;
     }
 
-    console.log(`✅ Generated ${result.response.terms.length} terms for topic: ${topicName}`);
+    console.log(`✅ Generated ${result.response.terms.length} terms for topic: ${topicName}` + 
+      ` (requested ${requestCount}, need to successfully queue ${needed})`);
 
     // Save each term and add to delivery queue
     let successCount = 0;
@@ -91,9 +106,9 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
             topicId: userTopic.topicId,
             term: termData.term,
             definition: termData.definition,
-            example: termData.example || termData.definition,
+            example: termData.examples?.[0] || termData.definition,
             category: 'Vocabulary',
-            complexityLevel: termData.complexityLevel || 'Intermediate',
+            complexityLevel: 'Intermediate',
             source: 'AI Generated',
             confidenceScore: 0.8,
             moderationStatus: 'approved',
@@ -129,6 +144,111 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
     }
 
     console.log(`✅ Successfully queued ${successCount} new words for user: ${userId}`);
+    
+    // Retry logic if we didn't queue enough terms
+    if (successCount < needed) {
+      const remaining = needed - successCount;
+      console.log(`⚠️ Only queued ${successCount}/${needed} terms, retrying for ${remaining} more...`);
+      
+      try {
+        // Retry with a different topic to increase chances of new terms
+        const alternativeTopic = user.topics[Math.floor(Math.random() * user.topics.length)];
+        const alternativeTopicName = alternativeTopic.topic.name;
+        
+        console.log(`🔄 Retry: Selected alternative topic: ${alternativeTopicName}`);
+        
+        // Fetch existing terms for the alternative topic
+        const altExistingTerms = await prisma.term.findMany({
+          where: {
+            topicId: alternativeTopic.topicId
+          },
+          select: {
+            term: true
+          },
+          take: 200
+        });
+        
+        const altExistingTermsList = altExistingTerms.map(t => t.term);
+        
+        // Generate additional vocabulary
+        const retryResult = await generateVocabulary({
+          topic: alternativeTopicName,
+          numTerms: remaining * 2, // Request 2x remaining to account for duplicates
+          definitionStyle: 'formal',
+          sentenceRange: '2-3',
+          numExamples: 1,
+          numFacts: 0,
+          termSelectionLevel: user.preferredDifficulty as any || 'intermediate',
+          definitionComplexityLevel: user.preferredDifficulty as any || 'intermediate',
+          domainContext: alternativeTopicName,
+          language: 'en',
+          useAnalogy: false,
+          includeSynonyms: true,
+          includeAntonyms: false,
+          includeRelatedTerms: true,
+          includeEtymology: false,
+          highlightRootWords: false,
+          openAiFirst: true,
+          existingTerms: altExistingTermsList,
+        });
+        
+        if (retryResult && retryResult.response && retryResult.response.terms) {
+          console.log(`🔄 Retry generated ${retryResult.response.terms.length} additional terms`);
+          
+          for (const termData of retryResult.response.terms) {
+            try {
+              const term = await prisma.term.upsert({
+                where: {
+                  topicId_term: {
+                    topicId: alternativeTopic.topicId,
+                    term: termData.term
+                  }
+                },
+                create: {
+                  topicId: alternativeTopic.topicId,
+                  term: termData.term,
+                  definition: termData.definition,
+                  example: termData.examples?.[0] || termData.definition,
+                  category: 'Vocabulary',
+                  complexityLevel: 'Intermediate',
+                  source: 'AI Generated',
+                  confidenceScore: 0.8,
+                  moderationStatus: 'approved',
+                  gptGenerated: true,
+                  verified: true,
+                },
+                update: {}
+              });
+
+              const existingDelivery = await prisma.delivery.findFirst({
+                where: {
+                  userId: userId,
+                  termId: term.id
+                }
+              });
+
+              if (!existingDelivery) {
+                await addDeliveryToQueue(userId, term.id);
+                successCount++;
+                console.log(`📦 Retry: Queued new term: ${term.term}`);
+                
+                // Stop if we've reached the target
+                if (successCount >= needed) {
+                  break;
+                }
+              }
+            } catch (termError) {
+              console.error(`❌ Retry: Error processing term "${termData.term}":`, termError);
+            }
+          }
+          
+          console.log(`✅ After retry: Successfully queued ${successCount}/${needed} total words`);
+        }
+      } catch (retryError) {
+        console.error(`❌ Error in retry logic:`, retryError);
+        // Don't throw - we've already queued some terms
+      }
+    }
   } catch (error) {
     console.error(`❌ Error generating batch for user ${userId}:`, error);
     throw error;
