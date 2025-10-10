@@ -819,6 +819,26 @@ async function generateVocabularyForTopic(topicId: string, topicName: string, us
 
     const generatedTerm = response.terms[0];
     
+    // Check if this is a duplicate before attempting to save
+    const isDuplicate = existingTermsList.some(existing => 
+      existing.toLowerCase().trim() === generatedTerm.term.toLowerCase().trim()
+    );
+    
+    if (isDuplicate) {
+      console.log(`🔍 Fallback: Skipping duplicate term "${generatedTerm.term}" - fetching existing version`);
+      // Fetch and return the existing term instead
+      const existingTerm = await prisma.term.findFirst({
+        where: {
+          topicId: topicId,
+          term: generatedTerm.term
+        },
+        include: {
+          topic: true
+        }
+      });
+      return existingTerm;
+    }
+    
     // Create term in database
     const termData = {
       id: `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

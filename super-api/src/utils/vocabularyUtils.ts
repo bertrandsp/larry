@@ -108,8 +108,18 @@ export function parseVocabularyFields(term: any) {
 /**
  * Safely parse JSON with fallback
  */
-function safeJsonParse(jsonString: string | null | undefined, fallback: any = null) {
+function safeJsonParse(jsonString: string | null | undefined | any, fallback: any = null) {
   if (!jsonString) return fallback;
+  
+  // If it's already an object/array, return it directly
+  if (typeof jsonString === 'object') {
+    return jsonString;
+  }
+  
+  // If it's not a string at this point, return fallback
+  if (typeof jsonString !== 'string') {
+    return fallback;
+  }
   
   // Handle empty string or whitespace-only strings
   const trimmed = jsonString.trim();

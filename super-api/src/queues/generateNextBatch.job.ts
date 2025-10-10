@@ -90,9 +90,22 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
     console.log(`✅ Generated ${result.response.terms.length} terms for topic: ${topicName}` + 
       ` (requested ${requestCount}, need to successfully queue ${needed})`);
 
-    // Save each term and add to delivery queue
+    // Filter out duplicates BEFORE processing to avoid wasted database operations
+    const uniqueTerms = result.response.terms.filter(termData => {
+      const termLower = termData.term.toLowerCase().trim();
+      return !existingTermsList.some(existing => 
+        existing.toLowerCase().trim() === termLower
+      );
+    });
+    
+    const duplicateCount = result.response.terms.length - uniqueTerms.length;
+    if (duplicateCount > 0) {
+      console.log(`🔍 Filtered out ${duplicateCount} duplicate terms before processing`);
+    }
+
+    // Save each unique term and add to delivery queue
     let successCount = 0;
-    for (const termData of result.response.terms) {
+    for (const termData of uniqueTerms) {
       try {
         // Use upsert to handle duplicates gracefully
         const term = await prisma.term.upsert({
@@ -195,7 +208,20 @@ export async function generateNextBatchJob({ userId }: { userId: string }) {
         if (retryResult && retryResult.response && retryResult.response.terms) {
           console.log(`🔄 Retry generated ${retryResult.response.terms.length} additional terms`);
           
-          for (const termData of retryResult.response.terms) {
+          // Filter out duplicates from retry results
+          const uniqueRetryTerms = retryResult.response.terms.filter(termData => {
+            const termLower = termData.term.toLowerCase().trim();
+            return !altExistingTermsList.some(existing => 
+              existing.toLowerCase().trim() === termLower
+            );
+          });
+          
+          const retryDuplicateCount = retryResult.response.terms.length - uniqueRetryTerms.length;
+          if (retryDuplicateCount > 0) {
+            console.log(`🔍 Retry: Filtered out ${retryDuplicateCount} duplicate terms before processing`);
+          }
+          
+          for (const termData of uniqueRetryTerms) {
             try {
               const term = await prisma.term.upsert({
                 where: {
