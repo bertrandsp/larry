@@ -16,6 +16,7 @@ export interface VocabularyParams {
   includeEtymology: boolean;
   highlightRootWords: boolean;
   openAiFirst: boolean;
+  existingTerms?: string[]; // Optional list of existing terms to avoid duplicates
 }
 
 export interface VocabularyResponse {
@@ -49,7 +50,8 @@ export const buildPrompt = (params: VocabularyParams): string => {
     includeAntonyms,
     includeRelatedTerms,
     includeEtymology,
-    highlightRootWords
+    highlightRootWords,
+    existingTerms
   } = params;
 
   // Generate term selection and definition complexity instructions
@@ -58,7 +60,16 @@ export const buildPrompt = (params: VocabularyParams): string => {
   
   console.log(`🔍 Building prompt with termSelectionLevel: ${termSelectionLevel}, definitionComplexityLevel: ${definitionComplexityLevel}`);
   
+  // Build existing terms exclusion instruction
+  const existingTermsInstruction = existingTerms && existingTerms.length > 0 
+    ? `\n\n🚫 CRITICAL: AVOID THESE EXISTING TERMS (${existingTerms.length} terms already in database):
+${existingTerms.slice(0, 100).join(', ')}${existingTerms.length > 100 ? `... and ${existingTerms.length - 100} more` : ''}
+
+⚠️ You MUST generate DIFFERENT terms that are NOT in the list above. Generate new, fresh vocabulary terms that haven't been covered yet.`
+    : '';
+  
   return `You are a vocabulary coach that helps users deeply understand any topic by generating a structured set of vocabulary terms and related facts.
+${existingTermsInstruction}
 
 ${termSelectionLevel === 'beginner' ? `
 🚨 CRITICAL SYSTEM INSTRUCTION FOR BEGINNER LEVEL:

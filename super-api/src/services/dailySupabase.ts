@@ -776,6 +776,32 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
   try {
     console.log(`🤖 Generating vocabulary for topic: ${topicName}`);
     
+    // Get the topic ID first
+    const { data: topic, error: topicError } = await supabase
+      .from('Topic')
+      .select('id')
+      .eq('name', topicName)
+      .single();
+
+    if (topicError || !topic) {
+      console.error('❌ Topic not found:', topicError);
+      return null;
+    }
+
+    // Fetch existing terms for this topic to avoid duplicates
+    const existingTerms = await prisma.term.findMany({
+      where: {
+        topicId: topic.id
+      },
+      select: {
+        term: true
+      },
+      take: 200 // Limit to recent 200 terms
+    });
+    
+    const existingTermsList = existingTerms.map(t => t.term);
+    console.log(`📋 Found ${existingTermsList.length} existing terms for topic ${topicName}`);
+    
     // Generate vocabulary using existing OpenAI service
     const { response } = await generateVocabulary({
       topic: topicName,
@@ -794,7 +820,8 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
       includeRelatedTerms: true,
       includeEtymology: false,
       highlightRootWords: false,
-      openAiFirst: true
+      openAiFirst: true,
+      existingTerms: existingTermsList // Pass existing terms to avoid duplicates
     });
 
     if (!response.terms || response.terms.length === 0) {
@@ -804,18 +831,6 @@ async function generateVocabularyForTopic(topicName: string, userId: string): Pr
 
     const generatedTerm = response.terms[0];
     
-    // Get the topic ID
-    const { data: topic, error: topicError } = await supabase
-      .from('Topic')
-      .select('id')
-      .eq('name', topicName)
-      .single();
-
-    if (topicError || !topic) {
-      console.error('❌ Topic not found:', topicError);
-      return null;
-    }
-
     // Create term in database
     const termData = {
       id: `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

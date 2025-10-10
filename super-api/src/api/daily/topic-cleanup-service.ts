@@ -157,17 +157,30 @@ export async function generateForNewTopic(userId: string, topicId: string, topic
       numTerms: 3,
       termSelectionLevel: user?.preferredDifficulty as any || 'intermediate',
       definitionComplexityLevel: user?.preferredDifficulty as any || 'intermediate',
+      definitionStyle: 'formal',
+      sentenceRange: '2-3',
+      numExamples: 1,
+      numFacts: 1,
+      domainContext: topicName,
+      language: 'en',
+      useAnalogy: true,
+      includeSynonyms: true,
+      includeAntonyms: false,
+      includeRelatedTerms: true,
+      includeEtymology: false,
+      highlightRootWords: false,
+      openAiFirst: true
     });
 
-    if (!result || !result.terms || result.terms.length === 0) {
+    if (!result || !result.response || !result.response.terms || result.response.terms.length === 0) {
       console.error(`❌ No terms generated for topic: ${topicName}`);
       return;
     }
 
-    console.log(`✅ Generated ${result.terms.length} terms for new topic: ${topicName}`);
+    console.log(`✅ Generated ${result.response.terms.length} terms for new topic: ${topicName}`);
 
     // Save each term and add to delivery queue using pooled connection
-    for (const termData of result.terms) {
+    for (const termData of result.response.terms) {
       const term = await prisma.term.create({
         data: {
           topicId,
